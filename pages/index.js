@@ -1,115 +1,215 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { useState, useEffect } from 'react';
+import Head from 'next/head';
+import { ethers } from 'ethers';
+import WalletConnect from '../components/WalletConnect';
+import StrategyForm from '../components/StrategyForm';
+import Navigation from '../components/Navigation';
 
 export default function Home() {
+  const [isConnected, setIsConnected] = useState(false);
+  const [account, setAccount] = useState('');
+  const [provider, setProvider] = useState(null);
+  const [signer, setSigner] = useState(null);
+  
+  // Strategy preview state
+  const [previewConfig, setPreviewConfig] = useState({
+    selectedPair: 'ETH/USDC',
+    startPrice: '3000',
+    spacing: '50',
+    orderSize: '0.1',
+    numOrders: '5',
+    strategyType: 'buy',
+    repostMode: 'next',
+    budget: '1'
+  });
+  
+  // Contract addresses (from our deployment)
+  const CONTRACT_ADDRESSES = {
+    factory: '0x7DB4A9Cc0BDF94978cC5A2f136465942E69fcc0E',
+    orderManager: '0x52339FDdf8bf7dFb2FE1973575B7713314d80Bc4',
+    oracleAdapter: '0xA218913B620603788369a49DbDe0283C161dd27C'
+  };
+
+  // Update preview when strategy changes
+  const updatePreview = (newConfig) => {
+    setPreviewConfig(newConfig);
+  };
+
+  // Connect wallet
+  const handleConnect = (accountAddress, providerInstance, signerInstance) => {
+    setAccount(accountAddress);
+    setProvider(providerInstance);
+    setSigner(signerInstance);
+    setIsConnected(!!accountAddress);
+  };
+
+  // Deploy strategy
+  const deployStrategy = async (strategyConfig) => {
+    if (!isConnected || !signer) {
+      alert('Please connect your wallet first!');
+      return;
+    }
+
+    try {
+      // Factory contract ABI (simplified)
+      const factoryABI = [
+        "function deployBot(address user) external payable returns (address bot)",
+        "event BotDeployed(address indexed user, address indexed bot, uint256 indexed botIndex, uint256 deploymentCost)"
+      ];
+
+      const factory = new ethers.Contract(CONTRACT_ADDRESSES.factory, factoryABI, signer);
+      
+      // Deploy bot
+      const deploymentCost = ethers.parseEther('0.01');
+      const tx = await factory.deployBot(account, { value: deploymentCost });
+      
+      console.log('Deploying bot...', tx.hash);
+      
+      const receipt = await tx.wait();
+      console.log('Bot deployed!', receipt);
+      
+      // TODO: Initialize strategy on the deployed bot with strategyConfig
+      alert('Strategy deployed successfully!');
+      
+    } catch (error) {
+      console.error('Error deploying strategy:', error);
+      alert('Error deploying strategy: ' + error.message);
+    }
+  };
+
   return (
-    <div
-      className={`${geistSans.className} ${geistMono.className} font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20`}
-    >
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              pages/index.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900">
+      <Head>
+        <title>inchbyinch - Smart Ladder Trading</title>
+        <meta name="description" content="Smart ladder trading automation on 1inch LOP" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+
+      <Navigation />
+
+      <main className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-bold text-white mb-4">
+            inchbyinch
+          </h1>
+          <p className="text-xl text-blue-200 mb-8">
+            Smart Ladder Trading on 1inch LOP
+          </p>
+          
+          <WalletConnect 
+            onConnect={handleConnect}
+            isConnected={isConnected}
+            account={account}
+          />
+        </div>
+
+        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Strategy Configuration */}
+          <StrategyForm onDeploy={deployStrategy} isConnected={isConnected} onConfigChange={updatePreview} />
+
+          {/* Strategy Preview */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+            <h2 className="text-2xl font-bold text-white mb-6">Strategy Preview</h2>
+            
+            {/* Current Price */}
+            <div className="mb-6">
+              <div className="text-blue-200 text-sm mb-2">Current Price</div>
+              <div className="text-3xl font-bold text-white">$3,250.00</div>
+            </div>
+
+            {/* Ladder Visualization */}
+            <div className="mb-6">
+              <div className="text-blue-200 text-sm mb-4">Order Ladder</div>
+              <div className="space-y-2">
+                {Array.from({ length: parseInt(previewConfig.numOrders) || 5 }, (_, i) => {
+                  const price = parseFloat(previewConfig.startPrice) - (i * parseFloat(previewConfig.spacing));
+                  return (
+                    <div key={i} className="flex items-center justify-between bg-white/5 rounded-lg p-3">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                        <span className="text-white font-medium">Order {i + 1}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-white font-bold">${price.toFixed(2)}</div>
+                        <div className="text-blue-200 text-sm">{previewConfig.orderSize} ETH</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Strategy Summary */}
+            <div className="bg-white/5 rounded-lg p-4">
+              <h3 className="text-white font-bold mb-3">Strategy Summary</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-blue-200">Total Orders:</span>
+                  <span className="text-white">{previewConfig.numOrders}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-blue-200">Total Value:</span>
+                  <span className="text-white">${(parseFloat(previewConfig.orderSize) * parseFloat(previewConfig.numOrders) * parseFloat(previewConfig.startPrice)).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-blue-200">Price Range:</span>
+                  <span className="text-white">${(parseFloat(previewConfig.startPrice) - (parseFloat(previewConfig.numOrders) - 1) * parseFloat(previewConfig.spacing)).toFixed(2)} - ${previewConfig.startPrice}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-blue-200">Repost Mode:</span>
+                  <span className="text-white capitalize">{previewConfig.repostMode}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Active Orders Section */}
+        <div className="mt-12 bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+          <h2 className="text-2xl font-bold text-white mb-6">Active Orders</h2>
+          
+          {!isConnected ? (
+            <div className="text-center py-8">
+              <p className="text-blue-200">Connect your wallet to view active orders</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-white/20">
+                    <th className="text-blue-200 font-medium py-3">Order ID</th>
+                    <th className="text-blue-200 font-medium py-3">Token Pair</th>
+                    <th className="text-blue-200 font-medium py-3">Price</th>
+                    <th className="text-blue-200 font-medium py-3">Size</th>
+                    <th className="text-blue-200 font-medium py-3">Status</th>
+                    <th className="text-blue-200 font-medium py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-white/10">
+                    <td className="py-3 text-white font-mono">#001</td>
+                    <td className="py-3 text-white">ETH/USDC</td>
+                    <td className="py-3 text-white">$3,200.00</td>
+                    <td className="py-3 text-white">0.1 ETH</td>
+                    <td className="py-3">
+                      <span className="bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full text-xs">
+                        Active
+                      </span>
+                    </td>
+                    <td className="py-3">
+                      <button className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
+                        Cancel
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }
