@@ -115,11 +115,11 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
         // Initialize the bot
         inchbyinchBot(bot).initialize(lop, orderManager, oracleAdapter);
         
-        // Transfer ownership to user
-        inchbyinchBot(bot).transferOwnership(user);
+        // Note: Bot ownership remains with factory for security
+        // User can interact through factory functions
         
-        // Authorize bot with order manager
-        IOrderManager(orderManager).authorizeBot(bot);
+        // Note: Bot authorization should be done by the owner of OrderManager
+        // This is typically done during deployment or by admin
         
         // Store bot
         userBots[user].push(bot);
@@ -155,11 +155,9 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
             // Initialize the bot
             inchbyinchBot(bot).initialize(lop, orderManager, oracleAdapter);
             
-            // Transfer ownership to user
-            inchbyinchBot(bot).transferOwnership(user);
+            // Note: Bot ownership remains with factory for security
             
-            // Authorize bot with order manager
-            IOrderManager(orderManager).authorizeBot(bot);
+            // Note: Bot authorization should be done by the owner of OrderManager
             
             // Store bot
             userBots[user].push(bot);
@@ -195,11 +193,9 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
         // Initialize the new bot
         inchbyinchBot(newBot).initialize(lop, orderManager, oracleAdapter);
         
-        // Transfer ownership to user
-        inchbyinchBot(newBot).transferOwnership(user);
+        // Note: Bot ownership remains with factory for security
         
-        // Authorize new bot with order manager
-        IOrderManager(orderManager).authorizeBot(newBot);
+        // Note: Bot authorization should be done by the owner of OrderManager
         
         // Replace old bot
         bots[botIndex] = newBot;

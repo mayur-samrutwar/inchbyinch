@@ -233,8 +233,8 @@
       ]
     },
     "/Users/tonystark/inchbyinch/contracts/inchbyinchFactory.sol": {
-      "lastModificationDate": 1753913676366,
-      "contentHash": "db23463386cf37a769387ec1b4a2d55f",
+      "lastModificationDate": 1753914447235,
+      "contentHash": "94d8666323f2d0ceef6c0fa390d8f9e2",
       "sourceName": "contracts/inchbyinchFactory.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -278,8 +278,8 @@
       ]
     },
     "/Users/tonystark/inchbyinch/contracts/inchbyinchBot.sol": {
-      "lastModificationDate": 1753913634772,
-      "contentHash": "8c1b79962ca739dd67162aafb8c66433",
+      "lastModificationDate": 1753914323931,
+      "contentHash": "816af7fff5c089597c996d107d949a78",
       "sourceName": "contracts/inchbyinchBot.sol",
       "solcConfig": {
         "version": "0.8.20",

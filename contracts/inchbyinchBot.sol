@@ -195,6 +195,8 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
         lop = I1inchLOP(_lop);
         orderManager = IOrderManager(_orderManager);
         oracleAdapter = IOracleAdapter(_oracleAdapter);
+        
+
     }
     
     /**
