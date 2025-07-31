@@ -4,12 +4,17 @@ import { ethers } from 'ethers';
 import WalletConnect from '../components/WalletConnect';
 import StrategyForm from '../components/StrategyForm';
 import Navigation from '../components/Navigation';
+import PriceDisplay from '../components/PriceDisplay';
+import { usePriceFeed } from '../hooks/usePriceFeed';
 
 export default function Home() {
   const [isConnected, setIsConnected] = useState(false);
   const [account, setAccount] = useState('');
   const [provider, setProvider] = useState(null);
   const [signer, setSigner] = useState(null);
+  
+  // Price feed for ETH
+  const { getPrice, getFormattedPrice, getPriceChange, getFormattedPriceChange, getPriceChangeColor } = usePriceFeed(['ETH']);
   
   // Strategy preview state
   const [previewConfig, setPreviewConfig] = useState({
@@ -125,7 +130,7 @@ export default function Home() {
             {/* Current Price */}
             <div className="mb-6">
               <div className="text-blue-200 text-sm mb-2">Current Price</div>
-              <div className="text-3xl font-bold text-white">$3,250.00</div>
+              <PriceDisplay symbol="ETH" size="xl" showChange={true} showSource={true} />
             </div>
 
             {/* Ladder Visualization */}

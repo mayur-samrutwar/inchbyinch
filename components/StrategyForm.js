@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSinglePrice } from '../hooks/usePriceFeed';
 
 export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) {
   const [selectedPair, setSelectedPair] = useState('ETH/USDC');
@@ -21,6 +22,9 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
   const [flipToSell, setFlipToSell] = useState(false);
   const [flipPercentage, setFlipPercentage] = useState('10');
   const [inactivityHours, setInactivityHours] = useState('6');
+
+  // Get real ETH price for default start price
+  const { price: ethPrice } = useSinglePrice('ETH');
 
   const TOKEN_PAIRS = [
     { label: 'ETH/USDC', makerAsset: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', takerAsset: '0xA0b86a33E6441b8c4C8C1C1C0B8C4C8C1C1C0B8C4' },
@@ -60,6 +64,15 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
       onConfigChange(newConfig);
     }
   };
+
+  // Update start price when ETH price changes
+  useEffect(() => {
+    if (ethPrice && selectedPair.includes('ETH')) {
+      const newStartPrice = Math.round(ethPrice).toString();
+      setStartPrice(newStartPrice);
+      updateConfig('startPrice', newStartPrice);
+    }
+  }, [ethPrice, selectedPair, updateConfig]);
 
   const handleDeploy = async () => {
     if (!isConnected) {

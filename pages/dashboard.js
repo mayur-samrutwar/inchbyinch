@@ -3,6 +3,8 @@ import Head from 'next/head';
 import { ethers } from 'ethers';
 import WalletConnect from '../components/WalletConnect';
 import Navigation from '../components/Navigation';
+import PriceDisplay from '../components/PriceDisplay';
+import { usePriceFeed } from '../hooks/usePriceFeed';
 
 export default function Dashboard() {
   const [isConnected, setIsConnected] = useState(false);
@@ -11,6 +13,9 @@ export default function Dashboard() {
   const [signer, setSigner] = useState(null);
   const [activeOrders, setActiveOrders] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Price feed for ETH
+  const { getPrice, getFormattedPrice } = usePriceFeed(['ETH']);
 
   // Contract addresses
   const CONTRACT_ADDRESSES = {
@@ -105,7 +110,9 @@ export default function Dashboard() {
           </div>
           <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
             <div className="text-blue-200 text-sm mb-2">Total Value</div>
-            <div className="text-3xl font-bold text-white">$1,250.00</div>
+            <div className="text-3xl font-bold text-white">
+              {getFormattedPrice('ETH') ? `$${(getPrice('ETH') * 0.385).toFixed(2)}` : '$1,250.00'}
+            </div>
           </div>
           <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
             <div className="text-blue-200 text-sm mb-2">Profit/Loss</div>
