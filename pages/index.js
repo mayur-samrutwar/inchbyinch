@@ -5,7 +5,7 @@ import StrategyForm from '../components/StrategyForm';
 import Navigation from '../components/Navigation';
 import PriceDisplay from '../components/PriceDisplay';
 import { usePriceFeed } from '../hooks/usePriceFeed';
-import { sepolia } from 'wagmi/chains';
+import { baseSepolia } from 'wagmi/chains';
 
 export default function Home() {
   // Wagmi hooks
@@ -50,9 +50,9 @@ export default function Home() {
       return;
     }
 
-    // Check if user is on Sepolia
-    if (chainId !== sepolia.id) {
-      alert('Please switch to Sepolia testnet to use this app.');
+    // Check if user is on Base Sepolia
+    if (chainId !== baseSepolia.id) {
+      alert('Please switch to Base Sepolia testnet to use this app.');
       return;
     }
 
@@ -108,7 +108,7 @@ export default function Home() {
         </div>
 
         {/* Network Warning */}
-        {isConnected && chainId !== sepolia.id && (
+        {isConnected && chainId !== baseSepolia.id && (
           <div className="max-w-4xl mx-auto mb-8">
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <div className="flex items-center">
@@ -122,7 +122,7 @@ export default function Home() {
                     Wrong Network
                   </h3>
                   <p className="text-sm text-red-700 mt-1">
-                    Please switch to Sepolia testnet to use this app.
+                    Please switch to Base Sepolia testnet to use this app.
                   </p>
                 </div>
               </div>

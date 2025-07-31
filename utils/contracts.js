@@ -1,57 +1,137 @@
 import { parseEther, formatEther } from 'viem';
 
-// Import ABIs
-import factoryABI from './abis/inchbyinchFactory.json';
-import botABI from './abis/inchbyinchBot.json';
-import orderManagerABI from './abis/OrderManager.json';
-import oracleAdapterABI from './abis/OracleAdapter.json';
-
-// Network configuration - Sepolia only
-const NETWORK = {
-  chainId: 11155111,
-  name: 'Sepolia',
-  rpcUrl: 'https://sepolia.infura.io/v3/your-project-id',
-  blockExplorer: 'https://sepolia.etherscan.io',
-  contracts: {
-    factory: '0x7DB4A9Cc0BDF94978cC5A2f136465942E69fcc0E',
-    orderManager: '0x52339FDdf8bf7dFb2FE1973575B7713314d80Bc4',
-    oracleAdapter: '0xA218913B620603788369a49DbDe0283C161dd27C',
-    lop: '0x3ef51736315f52d568d6d2cf289419b9cfffe782' // 1inch LOP on Sepolia
+// Network configurations
+export const NETWORKS = {
+  mainnet: {
+    id: 1,
+    name: 'Ethereum Mainnet',
+    rpcUrl: 'https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY',
+    explorer: 'https://etherscan.io',
+    chainId: '0x1'
+  },
+  base: {
+    id: 8453,
+    name: 'Base',
+    rpcUrl: 'https://mainnet.base.org',
+    explorer: 'https://basescan.org',
+    chainId: '0x2105'
+  },
+  baseSepolia: {
+    id: 84532,
+    name: 'Base Sepolia',
+    rpcUrl: 'https://sepolia.base.org',
+    explorer: 'https://sepolia.basescan.org',
+    chainId: '0x14a34'
+  },
+  sepolia: {
+    id: 11155111,
+    name: 'Sepolia',
+    rpcUrl: 'https://sepolia.infura.io/v3/YOUR_PROJECT_ID',
+    explorer: 'https://sepolia.etherscan.io',
+    chainId: '0xaa36a7'
+  },
+  polygonAmoy: {
+    id: 80002,
+    name: 'Polygon Amoy',
+    rpcUrl: 'https://rpc-amoy.polygon.technology',
+    explorer: 'https://amoy.polygonscan.com',
+    chainId: '0x13881'
   }
 };
 
-// Token configuration - ETH/USDC only
-const TOKENS = {
-  ETH: {
-    symbol: 'ETH',
-    name: 'Ethereum',
-    decimals: 18,
-    address: '0x0000000000000000000000000000000000000000', // Native token
-    logo: '/tokens/eth.svg'
+// Token configurations
+export const TOKENS = {
+  mainnet: {
+    WETH: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+    USDC: '0xA0b86a33E6441b8c4C8C8C8C8C8C8C8C8C8C8C8C8',
+    DAI: '0x6B175474E89094C44Da98b954EedeAC495271d0F'
   },
-  USDC: {
-    symbol: 'USDC',
-    name: 'USD Coin',
-    decimals: 6,
-    address: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', // Sepolia USDC
-    logo: '/tokens/usdc.svg'
+  base: {
+    WETH: '0x4200000000000000000000000000000000000006',
+    USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    DAI: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb'
+  },
+  baseSepolia: {
+    WETH: '0x4200000000000000000000000000000000000006',
+    USDC: '0x036CbD53842c5426634e7929541eC2318f3dCF7c',
+    DAI: '0x0000000000000000000000000000000000000000' // Not available on Base Sepolia
+  },
+  sepolia: {
+    WETH: '0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9',
+    USDC: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
+    DAI: '0x68194a729C2450ad26072b3D33ADaCbcef39D574'
+  },
+  polygonAmoy: {
+    WETH: '0x0000000000000000000000000000000000000000', // Not available
+    USDC: '0x0000000000000000000000000000000000000000', // Not available
+    DAI: '0x0000000000000000000000000000000000000000' // Not available
   }
 };
 
 // Contract ABIs
 export const CONTRACT_ABIS = {
-  factory: factoryABI.abi,
-  bot: botABI.abi,
-  orderManager: orderManagerABI.abi,
-  oracleAdapter: oracleAdapterABI.abi
+  factory: require('./abis/inchbyinchFactory.json'),
+  bot: require('./abis/inchbyinchBot.json'),
+  orderManager: require('./abis/OrderManager.json'),
+  oracleAdapter: require('./abis/OracleAdapter.json')
 };
 
-// Get network configuration
-export function getNetworkConfig(chainId) {
-  if (chainId !== NETWORK.chainId) {
-    throw new Error(`Unsupported network: ${chainId}. Please switch to Sepolia.`);
+// Contract addresses (will be loaded from deployment)
+export const CONTRACT_ADDRESSES = {
+  mainnet: {
+    factory: process.env.NEXT_PUBLIC_MAINNET_FACTORY_ADDRESS || '',
+    orderManager: process.env.NEXT_PUBLIC_MAINNET_ORDER_MANAGER_ADDRESS || '',
+    oracleAdapter: process.env.NEXT_PUBLIC_MAINNET_ORACLE_ADAPTER_ADDRESS || '',
+    lopAdapter: process.env.NEXT_PUBLIC_MAINNET_LOP_ADAPTER_ADDRESS || ''
+  },
+  base: {
+    factory: process.env.NEXT_PUBLIC_BASE_FACTORY_ADDRESS || '',
+    orderManager: process.env.NEXT_PUBLIC_BASE_ORDER_MANAGER_ADDRESS || '',
+    oracleAdapter: process.env.NEXT_PUBLIC_BASE_ORACLE_ADAPTER_ADDRESS || '',
+    lopAdapter: process.env.NEXT_PUBLIC_BASE_LOP_ADAPTER_ADDRESS || ''
+  },
+  baseSepolia: {
+    factory: process.env.NEXT_PUBLIC_BASE_SEPOLIA_FACTORY_ADDRESS || '',
+    orderManager: process.env.NEXT_PUBLIC_BASE_SEPOLIA_ORDER_MANAGER_ADDRESS || '',
+    oracleAdapter: process.env.NEXT_PUBLIC_BASE_SEPOLIA_ORACLE_ADAPTER_ADDRESS || '',
+    lopAdapter: process.env.NEXT_PUBLIC_BASE_SEPOLIA_LOP_ADAPTER_ADDRESS || ''
+  },
+  sepolia: {
+    factory: process.env.NEXT_PUBLIC_SEPOLIA_FACTORY_ADDRESS || '',
+    orderManager: process.env.NEXT_PUBLIC_SEPOLIA_ORDER_MANAGER_ADDRESS || '',
+    oracleAdapter: process.env.NEXT_PUBLIC_SEPOLIA_ORACLE_ADAPTER_ADDRESS || '',
+    lopAdapter: process.env.NEXT_PUBLIC_SEPOLIA_LOP_ADAPTER_ADDRESS || ''
+  },
+  polygonAmoy: {
+    factory: process.env.NEXT_PUBLIC_POLYGON_AMOY_FACTORY_ADDRESS || '',
+    orderManager: process.env.NEXT_PUBLIC_POLYGON_AMOY_ORDER_MANAGER_ADDRESS || '',
+    oracleAdapter: process.env.NEXT_PUBLIC_POLYGON_AMOY_ORACLE_ADAPTER_ADDRESS || '',
+    lopAdapter: process.env.NEXT_PUBLIC_POLYGON_AMOY_LOP_ADAPTER_ADDRESS || ''
   }
-  return NETWORK;
+};
+
+// Helper function to get network config
+export function getNetworkConfig(chainId) {
+  const network = Object.values(NETWORKS).find(net => net.id === chainId);
+  return network || NETWORKS.sepolia; // Default to Sepolia
+}
+
+// Helper function to get tokens for network
+export function getTokensForNetwork(chainId) {
+  const network = Object.values(NETWORKS).find(net => net.id === chainId);
+  if (!network) return TOKENS.sepolia;
+  
+  const networkName = Object.keys(NETWORKS).find(key => NETWORKS[key].id === chainId);
+  return TOKENS[networkName] || TOKENS.sepolia;
+}
+
+// Helper function to get contract addresses for network
+export function getContractAddressesForNetwork(chainId) {
+  const network = Object.values(NETWORKS).find(net => net.id === chainId);
+  if (!network) return CONTRACT_ADDRESSES.sepolia;
+  
+  const networkName = Object.keys(NETWORKS).find(key => NETWORKS[key].id === chainId);
+  return CONTRACT_ADDRESSES[networkName] || CONTRACT_ADDRESSES.sepolia;
 }
 
 // Get current network
@@ -62,22 +142,23 @@ export function getCurrentNetwork(provider) {
 
 // Validate network support
 export function isNetworkSupported(chainId) {
-  return chainId === NETWORK.chainId;
+  return Object.values(NETWORKS).some(net => net.id === chainId);
 }
 
 // Get supported networks
 export function getSupportedNetworks() {
-  return [NETWORK];
+  return Object.values(NETWORKS);
 }
 
 // Get token configuration
 export function getTokenConfig(symbol) {
-  return TOKENS[symbol] || null;
+  const tokens = Object.values(TOKENS).flatMap(network => Object.values(network));
+  return tokens.find(token => token.symbol === symbol) || null;
 }
 
 // Get all available tokens
 export function getAvailableTokens() {
-  return Object.values(TOKENS);
+  return Object.values(TOKENS).flatMap(network => Object.values(network));
 }
 
 // Create contract instance with Viem
@@ -154,10 +235,13 @@ export async function estimateGasWithBuffer(contract, functionName, args, buffer
 
 // Default export
 export default {
-  NETWORK,
+  NETWORKS,
   TOKENS,
   CONTRACT_ABIS,
+  CONTRACT_ADDRESSES,
   getNetworkConfig,
+  getTokensForNetwork,
+  getContractAddressesForNetwork,
   getCurrentNetwork,
   isNetworkSupported,
   getSupportedNetworks,

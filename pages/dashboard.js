@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Head from 'next/head';
-import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
+import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
 import Navigation from '../components/Navigation';
 import PriceDisplay from '../components/PriceDisplay';
 import { usePriceFeed } from '../hooks/usePriceFeed';
 import { formatEther, parseEther, parseUnits } from 'viem';
+import { baseSepolia } from 'wagmi/chains';
 
 export default function Dashboard() {
   // Wagmi hooks
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
   
@@ -29,12 +31,16 @@ export default function Dashboard() {
   const symbols = useMemo(() => ['ETH'], []);
   const { getPrice, getFormattedPrice } = usePriceFeed(symbols);
 
-  // Contract addresses
+  // Contract addresses from environment variables
   const CONTRACT_ADDRESSES = {
-    factory: '0x7DB4A9Cc0BDF94978cC5A2f136465942E69fcc0E',
-    orderManager: '0x52339FDdf8bf7dFb2FE1973575B7713314d80Bc4',
-    oracleAdapter: '0xA218913B620603788369a49DbDe0283C161dd27C'
+    factory: process.env.NEXT_PUBLIC_BASE_SEPOLIA_FACTORY_ADDRESS || '',
+    orderManager: process.env.NEXT_PUBLIC_BASE_SEPOLIA_ORDER_MANAGER_ADDRESS || '',
+    oracleAdapter: process.env.NEXT_PUBLIC_BASE_SEPOLIA_ORACLE_ADAPTER_ADDRESS || '',
+    lopAdapter: process.env.NEXT_PUBLIC_BASE_SEPOLIA_LOP_ADAPTER_ADDRESS || ''
   };
+
+  // Check if we're on the correct network
+  const isCorrectNetwork = chainId === baseSepolia.id;
 
   // Load active orders and calculate stats
   const loadActiveOrders = useCallback(async () => {
@@ -171,9 +177,9 @@ export default function Dashboard() {
             USDC: '0' // Will be updated if USDC contract is available
           };
 
-          // Try to get USDC balance if contract exists
+          // Try to get USDC balance if contract exists (Base Sepolia USDC)
           try {
-            const usdcBalance = await contractService.getBotBalance(bot.address, '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238'); // Sepolia USDC
+            const usdcBalance = await contractService.getBotBalance(bot.address, '0x036CbD53842c5426634e7929541eC2318f3dCF7c');
             balances[bot.address].USDC = usdcBalance;
           } catch (error) {
             console.log('USDC not available for this bot');
@@ -198,7 +204,7 @@ export default function Dashboard() {
       const contractService = (await import('../utils/contractService')).default;
       await contractService.initialize(publicClient, walletClient);
 
-      const tokenAddress = token === 'ETH' ? '0x0000000000000000000000000000000000000000' : '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238';
+      const tokenAddress = token === 'ETH' ? '0x0000000000000000000000000000000000000000' : '0x036CbD53842c5426634e7929541eC2318f3dCF7c';
       const amountWei = token === 'ETH' ? parseEther(amount) : parseUnits(amount, 6);
 
       await contractService.withdrawFromBot(botAddress, tokenAddress, amountWei);
@@ -236,6 +242,29 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
           <p className="text-gray-600">Monitor your active strategies and orders</p>
         </div>
+
+        {/* Network Warning */}
+        {isConnected && !isCorrectNetwork && (
+          <div className="max-w-4xl mx-auto mb-8">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">
+                    Wrong Network
+                  </h3>
+                  <p className="text-sm text-red-700 mt-1">
+                    Please switch to Base Sepolia testnet to use this app.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">

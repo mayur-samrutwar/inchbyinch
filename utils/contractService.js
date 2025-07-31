@@ -1,55 +1,78 @@
-import { parseEther, formatEther } from 'viem';
-import {
-  createFactoryContract,
-  createOrderManagerContract,
-  createOracleAdapterContract,
-  createBotContract,
-  getNetworkConfig,
-  validateContractAddresses,
-  formatTokenAmount,
-  parseTokenAmount,
-  getTokenConfig,
-  estimateGasWithBuffer
-} from './contracts';
+import { createPublicClient, createWalletClient, http, getAddress } from 'viem';
+import { getNetworkConfig, getContractAddressesForNetwork, CONTRACT_ABIS } from './contracts.js';
+import { estimateGasWithBuffer } from './contracts.js';
 
 class ContractService {
   constructor() {
-    this.provider = null;
-    this.signer = null;
-    this.networkConfig = null;
+    this.publicClient = null;
+    this.walletClient = null;
     this.factory = null;
-    this.orderManager = null;
-    this.oracleAdapter = null;
     this.userBots = new Map();
+    this.currentNetwork = null;
   }
 
-  // Initialize the service
-  async initialize(publicClient, walletClient) {
-    if (!publicClient || !walletClient) {
-      throw new Error('Public client and wallet client are required');
+  // Initialize with network
+  async initialize(chainId) {
+    try {
+      console.log('Initializing ContractService for chainId:', chainId);
+      
+      const networkConfig = getNetworkConfig(chainId);
+      const contractAddresses = getContractAddressesForNetwork(chainId);
+      
+      console.log('Network config:', networkConfig);
+      console.log('Contract addresses:', contractAddresses);
+      
+      // Create public client
+      this.publicClient = createPublicClient({
+        chain: networkConfig,
+        transport: http(networkConfig.rpcUrl)
+      });
+      
+      // Create wallet client (will be set when wallet connects)
+      this.walletClient = null;
+      
+      // Set current network
+      this.currentNetwork = networkConfig;
+      
+      // Initialize factory contract
+      if (contractAddresses.factory) {
+        this.factory = {
+          address: contractAddresses.factory,
+          abi: CONTRACT_ABIS.factory
+        };
+        console.log('Factory initialized:', this.factory.address);
+      } else {
+        console.warn('No factory address configured for this network');
+        this.factory = null;
+      }
+      
+      console.log('ContractService initialized successfully');
+      
+    } catch (error) {
+      console.error('Error initializing ContractService:', error);
+      throw error;
     }
+  }
 
-    this.publicClient = publicClient;
+  // Set wallet client when wallet connects
+  setWalletClient(walletClient) {
     this.walletClient = walletClient;
-
-    // Get current network
-    const chainId = await publicClient.getChainId();
-    this.networkConfig = getNetworkConfig(chainId);
-
-    // Validate contract addresses
-    validateContractAddresses(this.networkConfig);
-
-    // Initialize contracts with wallet client
-    this.factory = createFactoryContract(walletClient, this.networkConfig);
-    this.orderManager = createOrderManagerContract(walletClient, this.networkConfig);
-    this.oracleAdapter = createOracleAdapterContract(walletClient, this.networkConfig);
-
-    console.log('ContractService initialized for network:', this.networkConfig.name);
+    console.log('Wallet client set');
   }
 
   // Get current network info
-  getNetworkInfo() {
-    return this.networkConfig;
+  getCurrentNetwork() {
+    return this.currentNetwork;
+  }
+
+  // Check if service is ready
+  isReady() {
+    return this.publicClient && this.currentNetwork;
+  }
+
+  // Check if wallet is connected
+  isWalletConnected() {
+    return this.walletClient !== null;
   }
 
   // Deploy a new bot

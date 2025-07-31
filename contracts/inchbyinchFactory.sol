@@ -19,7 +19,7 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
     
     // Configuration
     uint256 public constant MAX_BOTS_PER_USER = 10;
-    uint256 public constant MIN_DEPOSIT = 0.01 ether;
+    uint256 public constant MIN_DEPOSIT = 0.001 ether; // Reduced from 0.01 to 0.001 for testing
     uint256 public constant MAX_DEPOSIT = 1000 ether;
     
     // State
