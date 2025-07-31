@@ -38,13 +38,13 @@ export default function PriceDisplay({
 
   const getChangeColor = (change) => {
     if (!change) return 'text-gray-400';
-    return change >= 0 ? 'text-green-400' : 'text-red-400';
+    return change >= 0 ? 'text-green-600' : 'text-red-600';
   };
 
   const getSourceColor = (source) => {
     switch (source) {
-      case 'coingecko': return 'text-blue-400';
-      case 'coincap': return 'text-purple-400';
+      case 'coingecko': return 'text-gray-500';
+      case 'coincap': return 'text-gray-500';
       default: return 'text-gray-400';
     }
   };
@@ -52,10 +52,10 @@ export default function PriceDisplay({
   if (loading) {
     return (
       <div className={`flex items-center space-x-2 ${className}`}>
-        <div className={`${sizeClasses[size]} font-bold text-white`}>
+        <div className={`${sizeClasses[size]} font-semibold text-black`}>
           Loading...
         </div>
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-black"></div>
       </div>
     );
   }
@@ -63,10 +63,10 @@ export default function PriceDisplay({
   if (error) {
     return (
       <div className={`${className}`}>
-        <div className={`${sizeClasses[size]} font-bold text-red-400`}>
+        <div className={`${sizeClasses[size]} font-semibold text-red-600`}>
           Error loading price
         </div>
-        <div className="text-xs text-red-300">
+        <div className="text-xs text-red-500">
           {error}
         </div>
       </div>
@@ -75,7 +75,7 @@ export default function PriceDisplay({
 
   return (
     <div className={`${className}`}>
-      <div className={`${sizeClasses[size]} font-bold text-white`}>
+      <div className={`${sizeClasses[size]} font-semibold text-black`}>
         {formatPrice(price)}
       </div>
       
@@ -92,7 +92,7 @@ export default function PriceDisplay({
       )}
       
       {lastUpdate && (
-        <div className="text-xs text-gray-400">
+        <div className="text-xs text-gray-500">
           Updated {lastUpdate.toLocaleTimeString()}
         </div>
       )}
@@ -109,15 +109,15 @@ export function CompactPriceDisplay({ symbol = 'ETH', className = '' }) {
   if (loading) {
     return (
       <div className={`flex items-center space-x-1 ${className}`}>
-        <div className="text-sm text-white">Loading...</div>
-        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+        <div className="text-sm text-black">Loading...</div>
+        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-black"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className={`text-sm text-red-400 ${className}`}>
+      <div className={`text-sm text-red-600 ${className}`}>
         Error
       </div>
     );
@@ -137,12 +137,12 @@ export function CompactPriceDisplay({ symbol = 'ETH', className = '' }) {
 
   const getChangeColor = (change) => {
     if (!change) return 'text-gray-400';
-    return change >= 0 ? 'text-green-400' : 'text-red-400';
+    return change >= 0 ? 'text-green-600' : 'text-red-600';
   };
 
   return (
     <div className={`flex items-center space-x-2 ${className}`}>
-      <div className="text-sm font-bold text-white">
+      <div className="text-sm font-semibold text-black">
         {formatPrice(price)}
       </div>
       {change24h !== null && (

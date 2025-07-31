@@ -75,59 +75,56 @@ export default function Dashboard() {
   }, [isConnected, loadActiveOrders]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900">
+    <div className="min-h-screen bg-white">
       <Head>
         <title>Dashboard - inchbyinch</title>
         <meta name="description" content="Active orders and strategy status" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <Navigation />
+      <Navigation 
+        onConnect={handleConnect}
+        isConnected={isConnected}
+        account={account}
+      />
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-6 py-12 max-w-7xl">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-4xl font-bold text-white mb-2">Dashboard</h1>
-            <p className="text-blue-200">Monitor your active strategies and orders</p>
-          </div>
-          <WalletConnect 
-            onConnect={handleConnect}
-            isConnected={isConnected}
-            account={account}
-          />
+        <div className="mb-12">
+          <h1 className="text-4xl font-light text-black mb-3">Dashboard</h1>
+          <p className="text-gray-600">Monitor your active strategies and orders</p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-            <div className="text-blue-200 text-sm mb-2">Active Orders</div>
-            <div className="text-3xl font-bold text-white">{activeOrders.filter(o => o.status === 'Active').length}</div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+          <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
+            <div className="text-gray-600 text-sm mb-3 font-medium">Active Orders</div>
+            <div className="text-3xl font-semibold text-black">{activeOrders.filter(o => o.status === 'Active').length}</div>
           </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-            <div className="text-blue-200 text-sm mb-2">Total Filled</div>
-            <div className="text-3xl font-bold text-white">{activeOrders.filter(o => o.status === 'Filled').length}</div>
+          <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
+            <div className="text-gray-600 text-sm mb-3 font-medium">Total Filled</div>
+            <div className="text-3xl font-semibold text-black">{activeOrders.filter(o => o.status === 'Filled').length}</div>
           </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-            <div className="text-blue-200 text-sm mb-2">Total Value</div>
-            <div className="text-3xl font-bold text-white">
+          <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
+            <div className="text-gray-600 text-sm mb-3 font-medium">Total Value</div>
+            <div className="text-3xl font-semibold text-black">
               {getFormattedPrice('ETH') ? `$${(getPrice('ETH') * 0.385).toFixed(2)}` : '$1,250.00'}
             </div>
           </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-            <div className="text-blue-200 text-sm mb-2">Profit/Loss</div>
-            <div className="text-3xl font-bold text-green-400">+$45.20</div>
+          <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200">
+            <div className="text-gray-600 text-sm mb-3 font-medium">Profit/Loss</div>
+            <div className="text-3xl font-semibold text-green-600">+$45.20</div>
           </div>
         </div>
 
         {/* Active Orders Table */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-white">Active Orders</h2>
+        <div className="bg-gray-50 rounded-2xl p-8 border border-gray-200">
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-2xl font-light text-black">Active Orders</h2>
             <button
               onClick={loadActiveOrders}
               disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
+              className="bg-black hover:bg-gray-800 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors font-medium"
             >
               {loading ? 'Loading...' : 'Refresh'}
             </button>
@@ -135,54 +132,54 @@ export default function Dashboard() {
 
           {!isConnected ? (
             <div className="text-center py-12">
-              <p className="text-blue-200 text-lg">Connect your wallet to view active orders</p>
+              <p className="text-gray-600 text-lg">Connect your wallet to view active orders</p>
             </div>
           ) : activeOrders.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-blue-200 text-lg">No active orders found</p>
-              <p className="text-blue-300 text-sm mt-2">Deploy a strategy to get started</p>
+              <p className="text-gray-600 text-lg">No active orders found</p>
+              <p className="text-gray-500 text-sm mt-2">Deploy a strategy to get started</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-white/20">
-                    <th className="text-blue-200 font-medium py-3">Order ID</th>
-                    <th className="text-blue-200 font-medium py-3">Token Pair</th>
-                    <th className="text-blue-200 font-medium py-3">Price</th>
-                    <th className="text-blue-200 font-medium py-3">Size</th>
-                    <th className="text-blue-200 font-medium py-3">Status</th>
-                    <th className="text-blue-200 font-medium py-3">Time</th>
-                    <th className="text-blue-200 font-medium py-3">Actions</th>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-gray-600 font-medium py-4">Order ID</th>
+                    <th className="text-gray-600 font-medium py-4">Token Pair</th>
+                    <th className="text-gray-600 font-medium py-4">Price</th>
+                    <th className="text-gray-600 font-medium py-4">Size</th>
+                    <th className="text-gray-600 font-medium py-4">Status</th>
+                    <th className="text-gray-600 font-medium py-4">Time</th>
+                    <th className="text-gray-600 font-medium py-4">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {activeOrders.map((order) => (
-                    <tr key={order.id} className="border-b border-white/10">
-                      <td className="py-3 text-white font-mono">#{order.id}</td>
-                      <td className="py-3 text-white">{order.pair}</td>
-                      <td className="py-3 text-white">{order.price}</td>
-                      <td className="py-3 text-white">{order.size}</td>
-                      <td className="py-3">
-                        <span className={`px-2 py-1 rounded-full text-xs ${
+                    <tr key={order.id} className="border-b border-gray-100">
+                      <td className="py-4 text-black font-mono">#{order.id}</td>
+                      <td className="py-4 text-black">{order.pair}</td>
+                      <td className="py-4 text-black">{order.price}</td>
+                      <td className="py-4 text-black">{order.size}</td>
+                      <td className="py-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                           order.status === 'Active' 
-                            ? 'bg-yellow-500/20 text-yellow-400'
-                            : 'bg-green-500/20 text-green-400'
+                            ? 'bg-gray-100 text-gray-800'
+                            : 'bg-green-100 text-green-800'
                         }`}>
                           {order.status}
                         </span>
                       </td>
-                      <td className="py-3 text-blue-200 text-sm">{order.timestamp}</td>
-                      <td className="py-3">
+                      <td className="py-4 text-gray-600 text-sm">{order.timestamp}</td>
+                      <td className="py-4">
                         <div className="flex space-x-2">
-                          <button className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
+                          <button className="bg-gray-200 hover:bg-gray-300 text-black px-3 py-1 rounded text-sm font-medium">
                             Cancel
                           </button>
                           <a 
                             href={`https://sepolia.etherscan.io/tx/${order.txHash}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                            className="bg-black hover:bg-gray-800 text-white px-3 py-1 rounded text-sm font-medium"
                           >
                             View
                           </a>

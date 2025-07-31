@@ -117,12 +117,12 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
   };
 
   return (
-    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-      <h2 className="text-2xl font-bold text-white mb-6">Strategy Configuration</h2>
+    <div className="bg-gray-50 rounded-2xl p-8 border border-gray-200">
+      <h2 className="text-2xl font-light text-black mb-8">Strategy Configuration</h2>
       
       {/* Token Pair Selection */}
-      <div className="mb-6">
-        <label className="block text-blue-200 text-sm font-medium mb-2">
+      <div className="mb-8">
+        <label className="block text-gray-700 text-sm font-medium mb-3">
           Token Pair
         </label>
         <select
@@ -131,10 +131,10 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
             setSelectedPair(e.target.value);
             updateConfig('selectedPair', e.target.value);
           }}
-          className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
         >
           {TOKEN_PAIRS.map((pair) => (
-            <option key={pair.label} value={pair.label} className="bg-gray-800">
+            <option key={pair.label} value={pair.label} className="bg-white text-black">
               {pair.label}
             </option>
           ))}
@@ -142,8 +142,8 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
       </div>
 
       {/* Strategy Type */}
-      <div className="mb-6">
-        <label className="block text-blue-200 text-sm font-medium mb-2">
+      <div className="mb-8">
+        <label className="block text-gray-700 text-sm font-medium mb-3">
           Strategy Type
         </label>
         <div className="grid grid-cols-3 gap-3">
@@ -158,10 +158,10 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
                 setStrategyType(type.value);
                 updateConfig('strategyType', type.value);
               }}
-              className={`p-3 rounded-lg border transition-all ${
+              className={`p-4 rounded-lg border transition-all ${
                 strategyType === type.value
-                  ? 'bg-blue-600 border-blue-400 text-white'
-                  : 'bg-white/5 border-white/20 text-blue-200 hover:bg-white/10'
+                  ? 'bg-black border-black text-white'
+                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
               }`}
             >
               <div className="font-medium">{type.label}</div>
@@ -172,9 +172,9 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
       </div>
 
       {/* Price Configuration */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-6 mb-8">
         <div>
-          <label className="block text-blue-200 text-sm font-medium mb-2">
+          <label className="block text-gray-700 text-sm font-medium mb-3">
             Starting Price ($)
           </label>
           <input
@@ -184,12 +184,12 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
               setStartPrice(e.target.value);
               updateConfig('startPrice', e.target.value);
             }}
-            className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
             placeholder="3000"
           />
         </div>
         <div>
-          <label className="block text-blue-200 text-sm font-medium mb-2">
+          <label className="block text-gray-700 text-sm font-medium mb-3">
             Distance Between Orders ($)
           </label>
           <input
@@ -199,16 +199,16 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
               setSpacing(e.target.value);
               updateConfig('spacing', e.target.value);
             }}
-            className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
             placeholder="50"
           />
         </div>
       </div>
 
       {/* Order Configuration */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-6 mb-8">
         <div>
-          <label className="block text-blue-200 text-sm font-medium mb-2">
+          <label className="block text-gray-700 text-sm font-medium mb-3">
             Order Size (ETH)
           </label>
           <input
@@ -219,12 +219,12 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
               setOrderSize(e.target.value);
               updateConfig('orderSize', e.target.value);
             }}
-            className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
             placeholder="0.05"
           />
         </div>
         <div>
-          <label className="block text-blue-200 text-sm font-medium mb-2">
+          <label className="block text-gray-700 text-sm font-medium mb-3">
             Total Buy Levels
           </label>
           <input
@@ -234,15 +234,15 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
               setNumOrders(e.target.value);
               updateConfig('numOrders', e.target.value);
             }}
-            className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
             placeholder="10"
           />
         </div>
       </div>
 
       {/* Post-Fill Behavior */}
-      <div className="mb-6">
-        <label className="block text-blue-200 text-sm font-medium mb-2">
+      <div className="mb-8">
+        <label className="block text-gray-700 text-sm font-medium mb-3">
           Post-Fill Behavior
         </label>
         <div className="grid grid-cols-3 gap-3">
@@ -257,10 +257,10 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
                 setPostFillBehavior(mode.value);
                 updateConfig('postFillBehavior', mode.value);
               }}
-              className={`p-3 rounded-lg border transition-all ${
+              className={`p-4 rounded-lg border transition-all ${
                 postFillBehavior === mode.value
-                  ? 'bg-blue-600 border-blue-400 text-white'
-                  : 'bg-white/5 border-white/20 text-blue-200 hover:bg-white/10'
+                  ? 'bg-black border-black text-white'
+                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
               }`}
             >
               <div className="font-medium">{mode.label}</div>
@@ -271,11 +271,11 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
       </div>
 
       {/* Advanced Configuration */}
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Advanced Configuration</h3>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="mb-8">
+        <h3 className="text-lg font-semibold text-black mb-6">Advanced Configuration</h3>
+        <div className="grid grid-cols-2 gap-6">
           <div>
-            <label className="block text-blue-200 text-sm font-medium mb-2">
+            <label className="block text-gray-700 text-sm font-medium mb-3">
               Max Orders Posted at Once
             </label>
             <input
@@ -285,12 +285,12 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
                 setMaxOrders(e.target.value);
                 updateConfig('maxOrders', e.target.value);
               }}
-              className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
               placeholder="3"
             />
           </div>
           <div>
-            <label className="block text-blue-200 text-sm font-medium mb-2">
+            <label className="block text-gray-700 text-sm font-medium mb-3">
               Cooldown Between Fills (minutes)
             </label>
             <input
@@ -376,11 +376,11 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
       </div>
 
       {/* Safety & Budget Controls */}
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Safety & Budget Controls</h3>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="mb-8">
+        <h3 className="text-lg font-semibold text-black mb-6">Safety & Budget Controls</h3>
+        <div className="grid grid-cols-2 gap-6">
           <div>
-            <label className="block text-blue-200 text-sm font-medium mb-2">
+            <label className="block text-gray-700 text-sm font-medium mb-3">
               Max Total Spend ($)
             </label>
             <input
@@ -390,12 +390,12 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
                 setBudget(e.target.value);
                 updateConfig('budget', e.target.value);
               }}
-              className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
               placeholder="1500"
             />
           </div>
           <div>
-            <label className="block text-blue-200 text-sm font-medium mb-2">
+            <label className="block text-gray-700 text-sm font-medium mb-3">
               Cancel All If Inactive (hours)
             </label>
             <input
@@ -405,7 +405,7 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
                 setInactivityHours(e.target.value);
                 updateConfig('inactivityHours', e.target.value);
               }}
-              className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
               placeholder="6"
             />
           </div>
@@ -413,50 +413,50 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
       </div>
 
       {/* Strategy Summary */}
-      <div className="mb-6 bg-white/5 rounded-lg p-4">
-        <h3 className="text-white font-bold mb-3">Strategy Summary</h3>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="space-y-2">
+      <div className="mb-8 bg-white rounded-lg p-6 border border-gray-200">
+        <h3 className="text-black font-semibold mb-4">Strategy Summary</h3>
+        <div className="grid grid-cols-2 gap-6 text-sm">
+          <div className="space-y-3">
             <div className="flex justify-between">
-              <span className="text-blue-200">Total Orders:</span>
-              <span className="text-white">{numOrders}</span>
+              <span className="text-gray-600">Total Orders:</span>
+              <span className="text-black font-medium">{numOrders}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-blue-200">Order Size:</span>
-              <span className="text-white">{orderSize} ETH</span>
+              <span className="text-gray-600">Order Size:</span>
+              <span className="text-black font-medium">{orderSize} ETH</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-blue-200">Price Range:</span>
-              <span className="text-white">${endPrice.toFixed(2)} - ${startPrice}</span>
+              <span className="text-gray-600">Price Range:</span>
+              <span className="text-black font-medium">${endPrice.toFixed(2)} - ${startPrice}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-blue-200">Average Price:</span>
-              <span className="text-white">${averagePrice.toFixed(2)}</span>
+              <span className="text-gray-600">Average Price:</span>
+              <span className="text-black font-medium">${averagePrice.toFixed(2)}</span>
             </div>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex justify-between">
-              <span className="text-blue-200">Total Spend:</span>
-              <span className={`font-bold ${totalSpend > parseFloat(budget) ? 'text-red-400' : 'text-white'}`}>
+              <span className="text-gray-600">Total Spend:</span>
+              <span className={`font-semibold ${totalSpend > parseFloat(budget) ? 'text-red-600' : 'text-black'}`}>
                 ${totalSpend.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-blue-200">Budget:</span>
-              <span className="text-white">${budget}</span>
+              <span className="text-gray-600">Budget:</span>
+              <span className="text-black font-medium">${budget}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-blue-200">Post-Fill:</span>
-              <span className="text-white capitalize">{postFillBehavior}</span>
+              <span className="text-gray-600">Post-Fill:</span>
+              <span className="text-black font-medium capitalize">{postFillBehavior}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-blue-200">Max Orders:</span>
-              <span className="text-white">{maxOrders}</span>
+              <span className="text-gray-600">Max Orders:</span>
+              <span className="text-black font-medium">{maxOrders}</span>
             </div>
           </div>
         </div>
         {totalSpend > parseFloat(budget) && (
-          <div className="mt-3 p-2 bg-red-500/20 border border-red-500/30 rounded text-red-400 text-sm">
+          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
             ⚠️ Total spend exceeds budget! Please adjust order size or number of orders.
           </div>
         )}
@@ -466,7 +466,7 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
       <button
         onClick={handleDeploy}
         disabled={!isConnected || isDeploying || totalSpend > parseFloat(budget)}
-        className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg text-lg transition-all duration-200 transform hover:scale-105"
+        className="w-full bg-black hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-4 px-6 rounded-lg text-lg transition-colors"
       >
         {isDeploying ? 'Deploying...' : 'Deploy Strategy'}
       </button>

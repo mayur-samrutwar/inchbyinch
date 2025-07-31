@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import WalletConnect from './WalletConnect';
 
-export default function Navigation() {
+export default function Navigation({ onConnect, isConnected, account }) {
   const router = useRouter();
 
   const isActive = (path) => {
@@ -9,12 +10,12 @@ export default function Navigation() {
   };
 
   return (
-    <nav className="bg-white/10 backdrop-blur-sm border-b border-white/20">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+    <nav className="bg-white border-b border-gray-200">
+      <div className="container mx-auto px-6">
+        <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
-            <span className="text-2xl font-bold text-white">inchbyinch</span>
+            <span className="text-2xl font-light text-black">inchbyinch</span>
           </Link>
 
           {/* Navigation Links */}
@@ -23,8 +24,8 @@ export default function Navigation() {
               href="/" 
               className={`text-sm font-medium transition-colors ${
                 isActive('/') 
-                  ? 'text-white border-b-2 border-blue-400' 
-                  : 'text-blue-200 hover:text-white'
+                  ? 'text-black border-b-2 border-black' 
+                  : 'text-gray-600 hover:text-black'
               }`}
             >
               Deploy Strategy
@@ -33,8 +34,8 @@ export default function Navigation() {
               href="/dashboard" 
               className={`text-sm font-medium transition-colors ${
                 isActive('/dashboard') 
-                  ? 'text-white border-b-2 border-blue-400' 
-                  : 'text-blue-200 hover:text-white'
+                  ? 'text-black border-b-2 border-black' 
+                  : 'text-gray-600 hover:text-black'
               }`}
             >
               Dashboard
@@ -43,12 +44,19 @@ export default function Navigation() {
               href="/docs" 
               className={`text-sm font-medium transition-colors ${
                 isActive('/docs') 
-                  ? 'text-white border-b-2 border-blue-400' 
-                  : 'text-blue-200 hover:text-white'
+                  ? 'text-black border-b-2 border-black' 
+                  : 'text-gray-600 hover:text-black'
               }`}
             >
               Documentation
             </Link>
+            
+            {/* Wallet Connect */}
+            <WalletConnect 
+              onConnect={onConnect}
+              isConnected={isConnected}
+              account={account}
+            />
           </div>
         </div>
       </div>

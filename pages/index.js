@@ -92,62 +92,60 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900">
+    <div className="min-h-screen bg-white">
       <Head>
         <title>inchbyinch - Smart Ladder Trading</title>
         <meta name="description" content="Smart ladder trading automation on 1inch LOP" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <Navigation />
+      <Navigation 
+        onConnect={handleConnect}
+        isConnected={isConnected}
+        account={account}
+      />
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-6 py-12 max-w-7xl">
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold text-white mb-4">
+        <div className="text-center mb-16">
+          <h1 className="text-6xl font-light text-black mb-6 tracking-tight">
             inchbyinch
           </h1>
-          <p className="text-xl text-blue-200 mb-8">
+          <p className="text-xl text-gray-600 mb-8 font-light">
             Smart Ladder Trading on 1inch LOP
           </p>
-          
-          <WalletConnect 
-            onConnect={handleConnect}
-            isConnected={isConnected}
-            account={account}
-          />
         </div>
 
         {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Strategy Configuration */}
           <StrategyForm onDeploy={deployStrategy} isConnected={isConnected} onConfigChange={updatePreview} />
 
           {/* Strategy Preview */}
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-            <h2 className="text-2xl font-bold text-white mb-6">Strategy Preview</h2>
+          <div className="bg-gray-50 rounded-2xl p-8 border border-gray-200">
+            <h2 className="text-2xl font-light text-black mb-8">Strategy Preview</h2>
             
             {/* Current Price */}
-            <div className="mb-6">
-              <div className="text-blue-200 text-sm mb-2">Current Price</div>
+            <div className="mb-8">
+              <div className="text-gray-600 text-sm mb-3 font-medium">Current Price</div>
               <PriceDisplay symbol="ETH" size="xl" showChange={true} showSource={true} />
             </div>
 
             {/* Ladder Visualization */}
-            <div className="mb-6">
-              <div className="text-blue-200 text-sm mb-4">Order Ladder</div>
-              <div className="space-y-2">
+            <div className="mb-8">
+              <div className="text-gray-600 text-sm mb-4 font-medium">Order Ladder</div>
+              <div className="space-y-3">
                 {Array.from({ length: parseInt(previewConfig.numOrders) || 5 }, (_, i) => {
                   const price = parseFloat(previewConfig.startPrice) - (i * parseFloat(previewConfig.spacing));
                   return (
-                    <div key={i} className="flex items-center justify-between bg-white/5 rounded-lg p-3">
+                    <div key={i} className="flex items-center justify-between bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                       <div className="flex items-center space-x-3">
-                        <div className="w-3 h-3 rounded-full bg-green-400"></div>
-                        <span className="text-white font-medium">Order {i + 1}</span>
+                        <div className="w-2 h-2 rounded-full bg-black"></div>
+                        <span className="text-black font-medium">Order {i + 1}</span>
                       </div>
                       <div className="text-right">
-                        <div className="text-white font-bold">${price.toFixed(2)}</div>
-                        <div className="text-blue-200 text-sm">{previewConfig.orderSize} ETH</div>
+                        <div className="text-black font-semibold">${price.toFixed(2)}</div>
+                        <div className="text-gray-600 text-sm">{previewConfig.orderSize} ETH</div>
                       </div>
                     </div>
                   );
@@ -156,43 +154,43 @@ export default function Home() {
             </div>
 
             {/* Strategy Summary */}
-            <div className="bg-white/5 rounded-lg p-4">
-              <h3 className="text-white font-bold mb-3">Strategy Summary</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="space-y-2">
+            <div className="bg-white rounded-lg p-6 border border-gray-200">
+              <h3 className="text-black font-semibold mb-4">Strategy Summary</h3>
+              <div className="grid grid-cols-2 gap-6 text-sm">
+                <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-blue-200">Total Orders:</span>
-                    <span className="text-white">{previewConfig.numOrders}</span>
+                    <span className="text-gray-600">Total Orders:</span>
+                    <span className="text-black font-medium">{previewConfig.numOrders}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-200">Order Size:</span>
-                    <span className="text-white">{previewConfig.orderSize} ETH</span>
+                    <span className="text-gray-600">Order Size:</span>
+                    <span className="text-black font-medium">{previewConfig.orderSize} ETH</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-200">Price Range:</span>
-                    <span className="text-white">${(parseFloat(previewConfig.startPrice) - (parseFloat(previewConfig.numOrders) - 1) * parseFloat(previewConfig.spacing)).toFixed(2)} - ${previewConfig.startPrice}</span>
+                    <span className="text-gray-600">Price Range:</span>
+                    <span className="text-black font-medium">${(parseFloat(previewConfig.startPrice) - (parseFloat(previewConfig.numOrders) - 1) * parseFloat(previewConfig.spacing)).toFixed(2)} - ${previewConfig.startPrice}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-200">Average Price:</span>
-                    <span className="text-white">${((parseFloat(previewConfig.startPrice) + (parseFloat(previewConfig.startPrice) - (parseFloat(previewConfig.numOrders) - 1) * parseFloat(previewConfig.spacing))) / 2).toFixed(2)}</span>
+                    <span className="text-gray-600">Average Price:</span>
+                    <span className="text-black font-medium">${((parseFloat(previewConfig.startPrice) + (parseFloat(previewConfig.startPrice) - (parseFloat(previewConfig.numOrders) - 1) * parseFloat(previewConfig.spacing))) / 2).toFixed(2)}</span>
                   </div>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-blue-200">Total Spend:</span>
-                    <span className="text-white">${(parseFloat(previewConfig.orderSize) * parseFloat(previewConfig.numOrders) * parseFloat(previewConfig.startPrice)).toFixed(2)}</span>
+                    <span className="text-gray-600">Total Spend:</span>
+                    <span className="text-black font-medium">${(parseFloat(previewConfig.orderSize) * parseFloat(previewConfig.numOrders) * parseFloat(previewConfig.startPrice)).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-200">Budget:</span>
-                    <span className="text-white">${previewConfig.budget}</span>
+                    <span className="text-gray-600">Budget:</span>
+                    <span className="text-black font-medium">${previewConfig.budget}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-200">Post-Fill:</span>
-                    <span className="text-white capitalize">{previewConfig.postFillBehavior || 'next'}</span>
+                    <span className="text-gray-600">Post-Fill:</span>
+                    <span className="text-black font-medium capitalize">{previewConfig.postFillBehavior || 'next'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-200">Max Orders:</span>
-                    <span className="text-white">{previewConfig.maxOrders || '3'}</span>
+                    <span className="text-gray-600">Max Orders:</span>
+                    <span className="text-black font-medium">{previewConfig.maxOrders || '3'}</span>
                   </div>
                 </div>
               </div>
@@ -201,39 +199,39 @@ export default function Home() {
         </div>
 
         {/* Active Orders Section */}
-        <div className="mt-12 bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-          <h2 className="text-2xl font-bold text-white mb-6">Active Orders</h2>
+        <div className="mt-16 bg-gray-50 rounded-2xl p-8 border border-gray-200">
+          <h2 className="text-2xl font-light text-black mb-8">Active Orders</h2>
           
           {!isConnected ? (
-            <div className="text-center py-8">
-              <p className="text-blue-200">Connect your wallet to view active orders</p>
+            <div className="text-center py-12">
+              <p className="text-gray-600">Connect your wallet to view active orders</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-white/20">
-                    <th className="text-blue-200 font-medium py-3">Order ID</th>
-                    <th className="text-blue-200 font-medium py-3">Token Pair</th>
-                    <th className="text-blue-200 font-medium py-3">Price</th>
-                    <th className="text-blue-200 font-medium py-3">Size</th>
-                    <th className="text-blue-200 font-medium py-3">Status</th>
-                    <th className="text-blue-200 font-medium py-3">Actions</th>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-gray-600 font-medium py-4">Order ID</th>
+                    <th className="text-gray-600 font-medium py-4">Token Pair</th>
+                    <th className="text-gray-600 font-medium py-4">Price</th>
+                    <th className="text-gray-600 font-medium py-4">Size</th>
+                    <th className="text-gray-600 font-medium py-4">Status</th>
+                    <th className="text-gray-600 font-medium py-4">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-b border-white/10">
-                    <td className="py-3 text-white font-mono">#001</td>
-                    <td className="py-3 text-white">ETH/USDC</td>
-                    <td className="py-3 text-white">$3,200.00</td>
-                    <td className="py-3 text-white">0.1 ETH</td>
-                    <td className="py-3">
-                      <span className="bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full text-xs">
+                  <tr className="border-b border-gray-100">
+                    <td className="py-4 text-black font-mono">#001</td>
+                    <td className="py-4 text-black">ETH/USDC</td>
+                    <td className="py-4 text-black">$3,200.00</td>
+                    <td className="py-4 text-black">0.1 ETH</td>
+                    <td className="py-4">
+                      <span className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-xs font-medium">
                         Active
                       </span>
                     </td>
-                    <td className="py-3">
-                      <button className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
+                    <td className="py-4">
+                      <button className="bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
                         Cancel
                       </button>
                     </td>
