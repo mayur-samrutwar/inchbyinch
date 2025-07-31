@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSinglePrice } from '../hooks/usePriceFeed';
+import LoadingSpinner from './LoadingSpinner';
 
 const STEPS = [
   { id: 1, title: 'Basic Setup', description: 'Token pair and strategy type' },
@@ -39,9 +40,7 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
   const { price: ethPrice } = useSinglePrice('ETH');
 
   const TOKEN_PAIRS = [
-    { label: 'ETH/USDC', value: 'ETH/USDC' },
-    { label: 'WETH/USDC', value: 'WETH/USDC' },
-    { label: 'WBTC/ETH', value: 'WBTC/ETH' }
+    { label: 'ETH/USDC', value: 'ETH/USDC' }
   ];
 
   // Update form data
@@ -83,9 +82,10 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
     setIsDeploying(true);
     try {
       await onDeploy(formData);
+      alert('Strategy deployed successfully!');
     } catch (error) {
       console.error('Error deploying strategy:', error);
-      alert('Error deploying strategy: ' + error.message);
+      alert('Failed to deploy strategy: ' + error.message);
     } finally {
       setIsDeploying(false);
     }
@@ -551,9 +551,16 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
           <button
             onClick={handleDeploy}
             disabled={!isConnected || isDeploying || totalSpend > parseFloat(formData.budget)}
-            className="btn btn-primary"
+            className="btn btn-primary flex items-center justify-center space-x-2"
           >
-            {isDeploying ? 'Deploying...' : 'Deploy Strategy'}
+            {isDeploying ? (
+              <>
+                <LoadingSpinner size="sm" text="" />
+                <span>Deploying...</span>
+              </>
+            ) : (
+              'Deploy Strategy'
+            )}
           </button>
         )}
       </div>

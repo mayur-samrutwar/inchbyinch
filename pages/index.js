@@ -1,17 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Head from 'next/head';
-import { ethers } from 'ethers';
-import WalletConnect from '../components/WalletConnect';
+import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
 import StrategyForm from '../components/StrategyForm';
 import Navigation from '../components/Navigation';
 import PriceDisplay from '../components/PriceDisplay';
 import { usePriceFeed } from '../hooks/usePriceFeed';
+import { sepolia } from 'wagmi/chains';
 
 export default function Home() {
-  const [isConnected, setIsConnected] = useState(false);
-  const [account, setAccount] = useState('');
-  const [provider, setProvider] = useState(null);
-  const [signer, setSigner] = useState(null);
+  // Wagmi hooks
+  const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
   
   // Price feed for ETH
   const { getPrice, getFormattedPrice, getPriceChange, getFormattedPriceChange, getPriceChangeColor } = usePriceFeed(['ETH']);
@@ -35,54 +36,49 @@ export default function Home() {
     flipPercentage: '10',
     inactivityHours: '6'
   });
-  
-  // Contract addresses
-  const CONTRACT_ADDRESSES = {
-    factory: '0x7DB4A9Cc0BDF94978cC5A2f136465942E69fcc0E',
-    orderManager: '0x52339FDdf8bf7dFb2FE1973575B7713314d80Bc4',
-    oracleAdapter: '0xA218913B620603788369a49DbDe0283C161dd27C'
-  };
 
   // Update preview when strategy changes
   const updatePreview = (newConfig) => {
     setPreviewConfig(newConfig);
   };
 
-  // Connect wallet
-  const handleConnect = (accountAddress, providerInstance, signerInstance) => {
-    setAccount(accountAddress);
-    setProvider(providerInstance);
-    setSigner(signerInstance);
-    setIsConnected(!!accountAddress);
-  };
-
   // Deploy strategy
   const deployStrategy = async (strategyConfig) => {
-    if (!isConnected || !signer) {
+    if (!isConnected || !walletClient) {
       alert('Please connect your wallet first!');
       return;
     }
 
-    try {
-      // Factory contract ABI (simplified)
-      const factoryABI = [
-        "function deployBot(address user) external payable returns (address bot)",
-        "event BotDeployed(address indexed user, address indexed bot, uint256 indexed botIndex, uint256 deploymentCost)"
-      ];
+    // Check if user is on Sepolia
+    if (chainId !== sepolia.id) {
+      alert('Please switch to Sepolia testnet to use this app.');
+      return;
+    }
 
-      const factory = new ethers.Contract(CONTRACT_ADDRESSES.factory, factoryABI, signer);
-      
+    try {
+      // Initialize contract service with Wagmi clients
+      const contractService = (await import('../utils/contractService')).default;
+      await contractService.initialize(publicClient, walletClient);
+
       // Deploy bot
-      const deploymentCost = ethers.parseEther('0.01');
-      const tx = await factory.deployBot(account, { value: deploymentCost });
-      
-      console.log('Deploying bot...', tx.hash);
-      
-      const receipt = await tx.wait();
-      console.log('Bot deployed!', receipt);
-      
-      // TODO: Initialize strategy on the deployed bot with strategyConfig
-      alert('Strategy deployed successfully!');
+      console.log('Deploying bot...');
+      const botDeployment = await contractService.deployBot(address);
+      console.log('Bot deployed at:', botDeployment.botAddress);
+
+      // Create strategy on the bot
+      console.log('Creating strategy...');
+      const strategyCreation = await contractService.createStrategy(
+        botDeployment.botAddress,
+        strategyConfig
+      );
+      console.log('Strategy created:', strategyCreation.txHash);
+
+      // Place ladder orders
+      console.log('Placing ladder orders...');
+      const orderPlacement = await contractService.placeLadderOrders(botDeployment.botAddress);
+      console.log('Orders placed:', orderPlacement.txHash);
+
+      alert(`Strategy deployed successfully!\nBot: ${botDeployment.botAddress}\nOrders: ${orderPlacement.orderCount} placed`);
       
     } catch (error) {
       console.error('Error deploying strategy:', error);
@@ -98,11 +94,7 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <Navigation 
-        onConnect={handleConnect}
-        isConnected={isConnected}
-        account={account}
-      />
+      <Navigation />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
@@ -115,6 +107,29 @@ export default function Home() {
             <PriceDisplay symbol="ETH" size="lg" showChange={true} />
           </div>
         </div>
+
+        {/* Network Warning */}
+        {isConnected && chainId !== sepolia.id && (
+          <div className="max-w-4xl mx-auto mb-8">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">
+                    Wrong Network
+                  </h3>
+                  <p className="text-sm text-red-700 mt-1">
+                    Please switch to Sepolia testnet to use this app.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-1 gap-12">

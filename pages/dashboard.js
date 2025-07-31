@@ -38,35 +38,46 @@ export default function Dashboard() {
 
     setLoading(true);
     try {
-      // Mock data for now - in real implementation, this would query the contracts
-      const mockOrders = [
-        {
-          id: '001',
-          pair: 'ETH/USDC',
-          price: '$3,200.00',
-          size: '0.1 ETH',
-          status: 'Active',
-          timestamp: '2024-01-15 14:30:00',
-          txHash: '0x1234...5678'
-        },
-        {
-          id: '002',
-          pair: 'ETH/USDC',
-          price: '$3,150.00',
-          size: '0.1 ETH',
-          status: 'Filled',
-          timestamp: '2024-01-15 14:25:00',
-          txHash: '0x8765...4321'
-        }
-      ];
+      // Initialize contract service
+      const contractService = (await import('../utils/contractService')).default;
+      await contractService.initialize(provider, signer);
 
-      setActiveOrders(mockOrders);
+      // Get user's bots
+      const userBots = await contractService.getUserBots(account);
+      
+      // Get orders from all bots
+      const allOrders = [];
+      for (const bot of userBots) {
+        try {
+          const botOrders = await contractService.getBotOrders(bot.address);
+          const botStrategy = await contractService.getBotStrategy(bot.address);
+          
+          // Transform orders to match UI format
+          const transformedOrders = botOrders.map(order => ({
+            id: order.index,
+            pair: `${botStrategy.makerAsset}/${botStrategy.takerAsset}`,
+            price: `$${parseFloat(order.price).toFixed(2)}`,
+            size: `${botStrategy.orderSize} ${botStrategy.makerAsset}`,
+            status: order.isActive ? 'Active' : 'Filled',
+            timestamp: new Date(order.createdAt).toLocaleString(),
+            txHash: order.hash.substring(0, 10) + '...' + order.hash.substring(order.hash.length - 8),
+            botAddress: bot.address
+          }));
+          
+          allOrders.push(...transformedOrders);
+        } catch (error) {
+          console.error(`Error loading orders for bot ${bot.address}:`, error);
+        }
+      }
+
+      setActiveOrders(allOrders);
     } catch (error) {
       console.error('Error loading orders:', error);
+      setError('Failed to load active orders');
     } finally {
       setLoading(false);
     }
-  }, [isConnected, signer]);
+  }, [isConnected, signer, account, provider]);
 
   useEffect(() => {
     if (isConnected) {
@@ -163,11 +174,25 @@ export default function Dashboard() {
                           {order.status}
                         </span>
                       </td>
-                      <td className="py-4">
-                        <button className="btn btn-secondary text-sm">
-                          Cancel
-                        </button>
-                      </td>
+                                          <td className="py-4">
+                      <button 
+                        className="btn btn-secondary text-sm"
+                        onClick={async () => {
+                          try {
+                            const contractService = (await import('../utils/contractService')).default;
+                            await contractService.initialize(provider, signer);
+                            await contractService.cancelAllOrders(order.botAddress);
+                            alert('Orders cancelled successfully!');
+                            loadActiveOrders(); // Refresh orders
+                          } catch (error) {
+                            console.error('Error cancelling orders:', error);
+                            alert('Error cancelling orders: ' + error.message);
+                          }
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </td>
                     </tr>
                   ))}
                 </tbody>

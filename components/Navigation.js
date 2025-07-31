@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import WalletConnect from './WalletConnect';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 
-export default function Navigation({ onConnect, isConnected, account }) {
+export default function Navigation() {
   const router = useRouter();
 
   const isActive = (path) => {
@@ -53,11 +53,7 @@ export default function Navigation({ onConnect, isConnected, account }) {
           </div>
           
           {/* Wallet Connect */}
-          <WalletConnect 
-            onConnect={onConnect}
-            isConnected={isConnected}
-            account={account}
-          />
+          <ConnectButton />
         </div>
       </div>
     </nav>
