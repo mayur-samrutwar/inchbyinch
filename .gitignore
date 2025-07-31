@@ -42,3 +42,27 @@ next-env.d.ts
 
 # cursor files
 .cursor/
+
+# hardhat
+/cache
+/artifact
+typechain/
+typechain-types/
+
+# solidity
+*.sol.js
+*.sol.ts
+
+# coverage
+coverage/
+coverage.json
+
+# gas
+gas-report.txt
+
+# hardhat files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

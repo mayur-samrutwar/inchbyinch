@@ -113,7 +113,7 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
         bot = Clones.clone(botImplementation);
         
         // Initialize the bot
-        inchbyinchBot(bot).initialize(lop, orderManager, oracleAdapter);
+        inchbyinchBot(bot).initialize(lop, orderManager, oracleAdapter, user);
         
         // Note: Bot ownership remains with factory for security
         // User can interact through factory functions
@@ -153,7 +153,7 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
             address bot = Clones.clone(botImplementation);
             
             // Initialize the bot
-            inchbyinchBot(bot).initialize(lop, orderManager, oracleAdapter);
+            inchbyinchBot(bot).initialize(lop, orderManager, oracleAdapter, user);
             
             // Note: Bot ownership remains with factory for security
             
@@ -191,7 +191,7 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
         newBot = Clones.clone(botImplementation);
         
         // Initialize the new bot
-        inchbyinchBot(newBot).initialize(lop, orderManager, oracleAdapter);
+        inchbyinchBot(newBot).initialize(lop, orderManager, oracleAdapter, user);
         
         // Note: Bot ownership remains with factory for security
         

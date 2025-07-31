@@ -53,6 +53,10 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
         uint256 currentOrderIndex;
         uint256 totalFilled;
         uint256 totalSpent;
+        // --- Phase 4: Sell-flip chaining ---
+        bool flipToSell;
+        uint256 flipPercentage; // e.g. 10 for +10%
+        bool flipSellActive;
     }
     
     struct Order {
@@ -112,6 +116,9 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
     );
     
     event StrategyCancelled();
+    
+    // Debug event for sell-flip
+    event SellFlipTriggered(uint256 orderPrice, uint256 sellPrice, uint256 flipPercentage);
     
     // Errors
     error InvalidStrategy();
@@ -186,17 +193,14 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
     function initialize(
         address _lop,
         address _orderManager,
-        address _oracleAdapter
-    ) external validAddress(_lop) validAddress(_orderManager) validAddress(_oracleAdapter) {
-        // Only allow initialization once
+        address _oracleAdapter,
+        address owner_
+    ) external validAddress(_lop) validAddress(_orderManager) validAddress(_oracleAdapter) validAddress(owner_) {
         require(address(lop) == address(0), "Already initialized");
-        
-        // Set external contracts
         lop = I1inchLOP(_lop);
         orderManager = IOrderManager(_orderManager);
         oracleAdapter = IOracleAdapter(_oracleAdapter);
-        
-
+        _transferOwnership(owner_);
     }
     
     /**
@@ -213,6 +217,8 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
      * @param stopLoss The stop loss price
      * @param takeProfit The take profit price
      * @param expiryTime The expiry time
+     * @param flipToSell_ Whether to flip to sell after a buy order is filled
+     * @param flipPercentage_ The percentage to increase the price for the sell order
      */
     function createStrategy(
         address makerAsset,
@@ -226,7 +232,9 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
         uint256 budget,
         uint256 stopLoss,
         uint256 takeProfit,
-        uint256 expiryTime
+        uint256 expiryTime,
+        bool flipToSell_,
+        uint256 flipPercentage_
     ) external onlyOwner validAddress(makerAsset) validAddress(takerAsset) validPrice(startPrice) validSpacing(spacing) validOrderSize(orderSize) {
         // Validate strategy parameters
         if (strategy.isActive) revert StrategyAlreadyActive();
@@ -269,7 +277,10 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
             isActive: true,
             currentOrderIndex: 0,
             totalFilled: 0,
-            totalSpent: 0
+            totalSpent: 0,
+            flipToSell: flipToSell_,
+            flipPercentage: flipPercentage_,
+            flipSellActive: false
         });
         
         // Register strategy with order manager
@@ -336,9 +347,22 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
         
         emit OrderFilled(orderHash, orderIndex, filledAmount, order.price);
         
-        // Handle reposting
+        // --- Sell-flip chaining logic ---
         if (remainingAmount == 0) {
-            _handleOrderRepost(orderIndex);
+            // If this was a buy order and flipToSell is enabled, place a sell order
+            if (
+                strategy.flipToSell &&
+                !strategy.flipSellActive &&
+                strategy.strategyType == STRATEGY_BUY_LADDER
+            ) {
+                uint256 sellPrice = order.price + (order.price * strategy.flipPercentage) / 100;
+                _placeOrder(sellPrice, strategy.orderSize, false); // false = sell
+                strategy.flipSellActive = true;
+                emit SellFlipTriggered(order.price, sellPrice, strategy.flipPercentage);
+            } else {
+                // Only handle repost if flipToSell is not enabled
+                _handleOrderRepost(orderIndex);
+            }
         }
     }
     
