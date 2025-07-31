@@ -376,50 +376,126 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
 
   const renderStep4 = () => (
     <div className="fade-in space-y-6">
+      {/* Strategy Preview */}
       <div className="card p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Strategy Summary</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Token Pair:</span>
-              <span className="font-medium">{formData.selectedPair}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Strategy Type:</span>
-              <span className="font-medium capitalize">{formData.strategyType}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Total Orders:</span>
-              <span className="font-medium">{formData.numOrders}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Order Size:</span>
-              <span className="font-medium">{formData.orderSize} ETH</span>
-            </div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Strategy Preview</h3>
+        
+        {/* Ladder Visualization */}
+        <div className="mb-6">
+          <h4 className="text-sm font-medium text-gray-700 mb-3">Order Ladder</h4>
+          <div className="space-y-2">
+            {Array.from({ length: parseInt(formData.numOrders) || 5 }, (_, i) => {
+              const price = parseFloat(formData.startPrice) - (i * parseFloat(formData.spacing));
+              return (
+                <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                    <span className="text-sm font-medium text-gray-900">Order {i + 1}</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-semibold text-gray-900">${price.toFixed(2)}</div>
+                    <div className="text-xs text-gray-500">{formData.orderSize} ETH</div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Price Range:</span>
-              <span className="font-medium">${endPrice.toFixed(2)} - ${formData.startPrice}</span>
+        </div>
+
+        {/* Strategy Summary */}
+        <div className="bg-gray-50 rounded-lg p-4">
+          <h4 className="text-sm font-semibold text-gray-900 mb-3">Strategy Summary</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Token Pair:</span>
+                <span className="font-medium text-gray-900">{formData.selectedPair}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Strategy Type:</span>
+                <span className="font-medium text-gray-900 capitalize">{formData.strategyType}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Total Orders:</span>
+                <span className="font-medium text-gray-900">{formData.numOrders}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Order Size:</span>
+                <span className="font-medium text-gray-900">{formData.orderSize} ETH</span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Average Price:</span>
-              <span className="font-medium">${averagePrice.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Total Spend:</span>
-              <span className={`font-medium ${totalSpend > parseFloat(formData.budget) ? 'text-red-500' : ''}`}>
-                ${totalSpend.toFixed(2)}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Budget:</span>
-              <span className="font-medium">${formData.budget}</span>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Price Range:</span>
+                <span className="font-medium text-gray-900">${endPrice.toFixed(2)} - ${formData.startPrice}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Average Price:</span>
+                <span className="font-medium text-gray-900">${averagePrice.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Total Spend:</span>
+                <span className={`font-medium ${totalSpend > parseFloat(formData.budget) ? 'text-red-500' : 'text-gray-900'}`}>
+                  ${totalSpend.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Budget:</span>
+                <span className="font-medium text-gray-900">${formData.budget}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Advanced Configuration Summary */}
+      {showAdvanced && (
+        <div className="card p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Advanced Configuration</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Max Orders:</span>
+                <span className="font-medium text-gray-900">{formData.maxOrders}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Cooldown:</span>
+                <span className="font-medium text-gray-900">{formData.cooldownMinutes} min</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Floor Price:</span>
+                <span className="font-medium text-gray-900">${formData.floorPrice}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Fill Percentage:</span>
+                <span className="font-medium text-gray-900">{formData.fillPercentage}%</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Post-Fill:</span>
+                <span className="font-medium text-gray-900 capitalize">{formData.postFillBehavior}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Flip to Sell:</span>
+                <span className="font-medium text-gray-900">{formData.flipToSell ? 'Yes' : 'No'}</span>
+              </div>
+              {formData.flipToSell && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Flip Percentage:</span>
+                  <span className="font-medium text-gray-900">{formData.flipPercentage}%</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-gray-600">Inactivity Timeout:</span>
+                <span className="font-medium text-gray-900">{formData.inactivityHours} hours</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Budget Warning */}
       {totalSpend > parseFloat(formData.budget) && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-red-600 text-sm">
@@ -427,6 +503,15 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
           </p>
         </div>
       )}
+
+      {/* Deployment Confirmation */}
+      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+        <h4 className="text-sm font-semibold text-blue-900 mb-2">Ready to Deploy</h4>
+        <p className="text-blue-800 text-sm">
+          Your strategy is configured and ready to be deployed onchain. 
+          This will create a smart contract that will automatically manage your ladder orders.
+        </p>
+      </div>
     </div>
   );
 

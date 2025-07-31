@@ -107,12 +107,7 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-gray-900 mb-4">
-            inchbyinch
-          </h1>
-          <p className="text-xl text-gray-600 mb-8">
-            Smart Ladder Trading on 1inch LOP
-          </p>
+
           
           {/* Current Price Display */}
           <div className="inline-flex items-center space-x-4 p-4 bg-white rounded-lg shadow-sm border border-gray-200">
@@ -122,90 +117,14 @@ export default function Home() {
         </div>
 
         {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-12">
           {/* Strategy Configuration */}
-          <div>
+          <div className="max-w-4xl mx-auto w-full">
             <StrategyForm 
               onDeploy={deployStrategy} 
               isConnected={isConnected} 
               onConfigChange={updatePreview} 
             />
-          </div>
-
-          {/* Strategy Preview */}
-          <div className="card p-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-8">Strategy Preview</h2>
-            
-            {/* Ladder Visualization */}
-            <div className="mb-8">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Order Ladder</h3>
-              <div className="space-y-3">
-                {Array.from({ length: parseInt(previewConfig.numOrders) || 5 }, (_, i) => {
-                  const price = parseFloat(previewConfig.startPrice) - (i * parseFloat(previewConfig.spacing));
-                  return (
-                    <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                        <span className="font-medium text-gray-900">Order {i + 1}</span>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-semibold text-gray-900">${price.toFixed(2)}</div>
-                        <div className="text-sm text-gray-500">{previewConfig.orderSize} ETH</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Strategy Summary */}
-            <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Strategy Summary</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Total Orders:</span>
-                    <span className="font-medium text-gray-900">{previewConfig.numOrders}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Order Size:</span>
-                    <span className="font-medium text-gray-900">{previewConfig.orderSize} ETH</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Price Range:</span>
-                    <span className="font-medium text-gray-900">
-                      ${(parseFloat(previewConfig.startPrice) - (parseFloat(previewConfig.numOrders) - 1) * parseFloat(previewConfig.spacing)).toFixed(2)} - ${previewConfig.startPrice}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Average Price:</span>
-                    <span className="font-medium text-gray-900">
-                      ${((parseFloat(previewConfig.startPrice) + (parseFloat(previewConfig.startPrice) - (parseFloat(previewConfig.numOrders) - 1) * parseFloat(previewConfig.spacing))) / 2).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Total Spend:</span>
-                    <span className="font-medium text-gray-900">
-                      ${(parseFloat(previewConfig.orderSize) * parseFloat(previewConfig.numOrders) * parseFloat(previewConfig.startPrice)).toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Budget:</span>
-                    <span className="font-medium text-gray-900">${previewConfig.budget}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Post-Fill:</span>
-                    <span className="font-medium text-gray-900 capitalize">{previewConfig.postFillBehavior || 'next'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Max Orders:</span>
-                    <span className="font-medium text-gray-900">{previewConfig.maxOrders || '3'}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
