@@ -16,11 +16,20 @@ export default function Home() {
     selectedPair: 'ETH/USDC',
     startPrice: '3000',
     spacing: '50',
-    orderSize: '0.1',
-    numOrders: '5',
+    orderSize: '0.05',
+    numOrders: '10',
     strategyType: 'buy',
     repostMode: 'next',
-    budget: '1'
+    budget: '1500',
+    maxOrders: '3',
+    cooldownMinutes: '5',
+    floorPrice: '2500',
+    stopLoss: '0',
+    fillPercentage: '75',
+    postFillBehavior: 'next',
+    flipToSell: false,
+    flipPercentage: '10',
+    inactivityHours: '6'
   });
   
   // Contract addresses (from our deployment)
@@ -144,22 +153,42 @@ export default function Home() {
             {/* Strategy Summary */}
             <div className="bg-white/5 rounded-lg p-4">
               <h3 className="text-white font-bold mb-3">Strategy Summary</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-blue-200">Total Orders:</span>
-                  <span className="text-white">{previewConfig.numOrders}</span>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-blue-200">Total Orders:</span>
+                    <span className="text-white">{previewConfig.numOrders}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-blue-200">Order Size:</span>
+                    <span className="text-white">{previewConfig.orderSize} ETH</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-blue-200">Price Range:</span>
+                    <span className="text-white">${(parseFloat(previewConfig.startPrice) - (parseFloat(previewConfig.numOrders) - 1) * parseFloat(previewConfig.spacing)).toFixed(2)} - ${previewConfig.startPrice}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-blue-200">Average Price:</span>
+                    <span className="text-white">${((parseFloat(previewConfig.startPrice) + (parseFloat(previewConfig.startPrice) - (parseFloat(previewConfig.numOrders) - 1) * parseFloat(previewConfig.spacing))) / 2).toFixed(2)}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-blue-200">Total Value:</span>
-                  <span className="text-white">${(parseFloat(previewConfig.orderSize) * parseFloat(previewConfig.numOrders) * parseFloat(previewConfig.startPrice)).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-blue-200">Price Range:</span>
-                  <span className="text-white">${(parseFloat(previewConfig.startPrice) - (parseFloat(previewConfig.numOrders) - 1) * parseFloat(previewConfig.spacing)).toFixed(2)} - ${previewConfig.startPrice}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-blue-200">Repost Mode:</span>
-                  <span className="text-white capitalize">{previewConfig.repostMode}</span>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-blue-200">Total Spend:</span>
+                    <span className="text-white">${(parseFloat(previewConfig.orderSize) * parseFloat(previewConfig.numOrders) * parseFloat(previewConfig.startPrice)).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-blue-200">Budget:</span>
+                    <span className="text-white">${previewConfig.budget}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-blue-200">Post-Fill:</span>
+                    <span className="text-white capitalize">{previewConfig.postFillBehavior || 'next'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-blue-200">Max Orders:</span>
+                    <span className="text-white">{previewConfig.maxOrders || '3'}</span>
+                  </div>
                 </div>
               </div>
             </div>
