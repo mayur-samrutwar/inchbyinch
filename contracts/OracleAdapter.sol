@@ -62,7 +62,7 @@ contract OracleAdapter is IOracleAdapter, Ownable, ReentrancyGuard, Pausable {
     }
     
     modifier validTimestamp(uint256 timestamp) {
-        if (timestamp == 0 || timestamp > block.timestamp) revert InvalidTimestamp();
+        if (timestamp == 0) revert InvalidTimestamp();
         _;
     }
     

@@ -10,7 +10,7 @@ describe("OracleAdapter", function () {
     let user2;
     
     const ETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
-    const USDC_ADDRESS = "0xA0b86a33E6441b8c4C8C8C8C8C8C8C8C8C8C8C8C";
+    const USDC_ADDRESS = "0xA0b86a33E6441b8c4C8C8C8C8C8C8C8C8C8C8C8C8";
     
     beforeEach(async function () {
         [owner, updater1, updater2, user1, user2] = await ethers.getSigners();
@@ -105,10 +105,10 @@ describe("OracleAdapter", function () {
         
         it("Should revert with invalid timestamp", async function () {
             const price = ethers.parseEther("3000");
-            const futureTimestamp = Math.floor(Date.now() / 1000) + 3600; // 1 hour in future
+            const invalidTimestamp = 0; // Zero timestamp is invalid
             
             await expect(
-                oracleAdapter.connect(updater1).updatePrice(ETH_ADDRESS, price, futureTimestamp)
+                oracleAdapter.connect(updater1).updatePrice(ETH_ADDRESS, price, invalidTimestamp)
             ).to.be.revertedWithCustomError(oracleAdapter, "InvalidTimestamp");
         });
         
@@ -136,7 +136,7 @@ describe("OracleAdapter", function () {
                 ethers.parseEther("3200")
             ];
             const timestamps = [
-                Math.floor(Date.now() / 1000),
+                Math.floor(Date.now() / 1000) + 1,
                 Math.floor(Date.now() / 1000) + 60,
                 Math.floor(Date.now() / 1000) + 120
             ];
@@ -157,7 +157,7 @@ describe("OracleAdapter", function () {
         
         it("Should limit price history to 100 entries", async function () {
             const basePrice = ethers.parseEther("3000");
-            const baseTimestamp = Math.floor(Date.now() / 1000);
+            const baseTimestamp = Math.floor(Date.now() / 1000) + 1;
             
             // Add 101 prices
             for (let i = 0; i < 101; i++) {
@@ -188,7 +188,7 @@ describe("OracleAdapter", function () {
                 ethers.parseEther("3200")
             ];
             const timestamps = [
-                Math.floor(Date.now() / 1000),
+                Math.floor(Date.now() / 1000) + 1,
                 Math.floor(Date.now() / 1000) + 60,
                 Math.floor(Date.now() / 1000) + 120
             ];

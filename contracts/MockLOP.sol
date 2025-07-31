@@ -107,4 +107,56 @@ contract MockLOP is I1inchLOP {
         
         emit MockOrderPlaced(orderHash, order.maker);
     }
+
+    /**
+     * @notice Fills an order with RFQ (mock implementation)
+     * @param order The order structure
+     * @param signature The signature for the order
+     * @param interaction The interaction data for custom callbacks
+     * @return makingAmount The amount of maker asset that was filled
+     * @return takingAmount The amount of taker asset that was filled
+     */
+    function fillOrderRFQ(
+        OrderRFQ calldata order,
+        bytes calldata signature,
+        bytes calldata interaction
+    ) external payable returns (uint256 makingAmount, uint256 takingAmount) {
+        bytes32 orderHash = this.getOrderRFQHash(order);
+        require(orderExists[orderHash], "Order does not exist");
+        
+        // Mock fill - return half the amount
+        makingAmount = order.makingAmount / 2;
+        takingAmount = order.takingAmount / 2;
+        
+        emit MockOrderFilled(orderHash, makingAmount, takingAmount);
+        
+        return (makingAmount, takingAmount);
+    }
+
+    /**
+     * @notice Gets the order hash for RFQ orders (mock implementation)
+     * @param order The order
+     * @return orderHash The hash of the order
+     */
+    function getOrderRFQHash(OrderRFQ calldata order) external view returns (bytes32 orderHash) {
+        return keccak256(abi.encodePacked(
+            order.info,
+            order.makerAsset,
+            order.takerAsset,
+            order.maker,
+            order.allowedSender,
+            order.makingAmount,
+            order.takingAmount
+        ));
+    }
+
+    /**
+     * @notice Checks if an RFQ order is valid (mock implementation)
+     * @param order The order to check
+     * @return isValid Whether the order is valid
+     */
+    function checkOrderRFQ(OrderRFQ calldata order) external view returns (bool isValid) {
+        bytes32 orderHash = this.getOrderRFQHash(order);
+        return orderExists[orderHash];
+    }
 } 

@@ -27,6 +27,9 @@ contract LOPAdapter is Ownable, ReentrancyGuard, Pausable {
     mapping(bytes32 => uint256) public orderTimestamps;
     mapping(address => bytes32[]) public userOrders;
     
+    // Authorization tracking
+    mapping(address => bool) public authorizedUpdaters;
+    
     // Events
     event OrderCreated(
         bytes32 indexed orderHash,
@@ -70,7 +73,7 @@ contract LOPAdapter is Ownable, ReentrancyGuard, Pausable {
     }
     
     modifier onlyAuthorized() {
-        if (msg.sender != owner()) revert UnauthorizedCaller();
+        if (msg.sender != owner() && !authorizedUpdaters[msg.sender]) revert UnauthorizedCaller();
         _;
     }
     
@@ -234,6 +237,22 @@ contract LOPAdapter is Ownable, ReentrancyGuard, Pausable {
         )));
     }
     
+    /**
+     * @notice Authorizes an updater
+     * @param updater The address to authorize
+     */
+    function authorizeUpdater(address updater) external onlyOwner validAddress(updater) {
+        authorizedUpdaters[updater] = true;
+    }
+    
+    /**
+     * @notice Deauthorizes an updater
+     * @param updater The address to deauthorize
+     */
+    function deauthorizeUpdater(address updater) external onlyOwner validAddress(updater) {
+        authorizedUpdaters[updater] = false;
+    }
+
     /**
      * @notice Pauses the adapter
      */

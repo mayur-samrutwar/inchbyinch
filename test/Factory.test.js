@@ -6,12 +6,13 @@ describe("inchbyinchFactory", function () {
     let orderManager;
     let oracleAdapter;
     let botImplementation;
+    let lopAdapter;
     let owner;
     let user1;
     let user2;
     let user3;
     
-    const LOP_ADDRESS = "0x3ef51736315f52d568d6d2cf289419b9cfffe782";
+    const LOP_ADDRESS = "0x3ef51736315F52d568D6D2cf289419b9CfffE782";
     const MIN_DEPOSIT = ethers.parseEther("0.01");
     const MAX_DEPOSIT = ethers.parseEther("1000");
     
@@ -31,13 +32,19 @@ describe("inchbyinchFactory", function () {
         botImplementation = await InchByInchBot.deploy();
         await botImplementation.waitForDeployment();
         
+        // Deploy LOPAdapter
+        const LOPAdapter = await ethers.getContractFactory("LOPAdapter");
+        lopAdapter = await LOPAdapter.deploy(LOP_ADDRESS);
+        await lopAdapter.waitForDeployment();
+        
         // Deploy factory
         const InchByInchFactory = await ethers.getContractFactory("inchbyinchFactory");
         factory = await InchByInchFactory.deploy(
             await botImplementation.getAddress(),
             await orderManager.getAddress(),
             await oracleAdapter.getAddress(),
-            LOP_ADDRESS
+            LOP_ADDRESS,
+            await lopAdapter.getAddress()
         );
         await factory.waitForDeployment();
         

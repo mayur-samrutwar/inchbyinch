@@ -1,0 +1,44 @@
+{
+  "timestamp": "2025-07-31T18:33:47.943Z",
+  "summary": {
+    "total": 6,
+    "passed": 1,
+    "failed": 5,
+    "successRate": 16.666666666666664
+  },
+  "errors": [
+    {
+      "file": "test/ComprehensiveTests.test.js",
+      "error": "Command failed: npx hardhat test test/ComprehensiveTests.test.js\n",
+      "stderr": ""
+    },
+    {
+      "file": "test/LOPIntegrationTests.test.js",
+      "error": "Command failed: npx hardhat test test/LOPIntegrationTests.test.js\n",
+      "stderr": ""
+    },
+    {
+      "file": "test/Factory.test.js",
+      "error": "Command failed: npx hardhat test test/Factory.test.js\n",
+      "stderr": ""
+    },
+    {
+      "file": "test/OracleAdapter.test.js",
+      "error": "Command failed: npx hardhat test test/OracleAdapter.test.js\n",
+      "stderr": ""
+    },
+    {
+      "file": "test/OrderManager.test.js",
+      "error": "Command failed: npx hardhat test test/OrderManager.test.js\n",
+      "stderr": ""
+    }
+  ],
+  "testFiles": [
+    "test/ComprehensiveTests.test.js",
+    "test/LOPIntegrationTests.test.js",
+    "test/Factory.test.js",
+    "test/OracleAdapter.test.js",
+    "test/OrderManager.test.js",
+    "test/Simple.test.js"
+  ]
+}

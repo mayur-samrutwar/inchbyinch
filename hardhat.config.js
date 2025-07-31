@@ -16,13 +16,22 @@ module.exports = {
   },
   networks: {
     hardhat: {
-      // Use local network for testing
+      forking: {
+        url: process.env.MAINNET_RPC_URL || "https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY",
+        blockNumber: 19000000, // Recent block for consistent testing
+      },
+      accounts: {
+        count: 20,
+        accountsBalance: "10000000000000000000000", // 10,000 ETH
+      },
     },
-    localhost: {
-      url: "http://127.0.0.1:8545",
+    mainnet: {
+      url: process.env.MAINNET_RPC_URL || "https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: 20000000000, // 20 gwei
     },
     sepolia: {
-      url: process.env.SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/your-project-id",
+      url: process.env.SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/YOUR_PROJECT_ID",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 11155111,
     },
@@ -40,6 +49,7 @@ module.exports = {
   },
   etherscan: {
     apiKey: {
+      mainnet: process.env.ETHERSCAN_API_KEY || "",
       sepolia: process.env.ETHERSCAN_API_KEY || "",
       baseSepolia: process.env.BASESCAN_API_KEY || "",
       polygonAmoy: process.env.POLYGONSCAN_API_KEY || "",

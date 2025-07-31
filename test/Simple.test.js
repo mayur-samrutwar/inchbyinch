@@ -10,6 +10,7 @@ describe("Simple Contract Tests", function () {
     let user1;
     let user2;
     let mockLop;
+    let lopAdapter;
     
     beforeEach(async function () {
         [owner, user1, user2] = await ethers.getSigners();
@@ -27,6 +28,10 @@ describe("Simple Contract Tests", function () {
         mockLop = await MockLOP.deploy();
         await mockLop.waitForDeployment();
         
+        const LOPAdapter = await ethers.getContractFactory("LOPAdapter");
+        lopAdapter = await LOPAdapter.deploy(await mockLop.getAddress());
+        await lopAdapter.waitForDeployment();
+        
         const InchByInchBot = await ethers.getContractFactory("inchbyinchBot");
         botImplementation = await InchByInchBot.deploy();
         await botImplementation.waitForDeployment();
@@ -36,13 +41,15 @@ describe("Simple Contract Tests", function () {
             await botImplementation.getAddress(),
             await orderManager.getAddress(),
             await oracleAdapter.getAddress(),
-            await mockLop.getAddress()
+            await mockLop.getAddress(),
+            await lopAdapter.getAddress()
         );
         await factory.waitForDeployment();
         
         // Authorize factory in OrderManager and OracleAdapter
         await orderManager.authorizeBot(await factory.getAddress());
         await oracleAdapter.authorizeUpdater(await factory.getAddress());
+        await lopAdapter.authorizeUpdater(await factory.getAddress());
     });
     
     describe("Basic Functionality", function () {
@@ -110,12 +117,15 @@ describe("Simple Contract Tests", function () {
             // Authorize the bot in OrderManager (required for createStrategy call)
             await orderManager.authorizeBot(botAddress);
             
+            // Authorize the bot in LOPAdapter (required for placeLadderOrders call)
+            await lopAdapter.authorizeUpdater(botAddress);
+            
             // Create a buy ladder strategy with flipToSell enabled
             await bot.connect(botOwnerSigner).createStrategy(
                 weth.target, // makerAsset: WETH (what we want to buy)
                 usdc.target, // takerAsset: USDC (what we spend)
                 ethers.parseEther("3000"), // startPrice: $3000
-                50, // spacing: 50% (not in wei)
+                50, // spacing: 50% (percentage value)
                 ethers.parseEther("0.05"), // orderSize: 0.05 WETH (within 0.001-1000 range)
                 6, // numOrders
                 0, // strategyType: BUY_LADDER
@@ -130,7 +140,8 @@ describe("Simple Contract Tests", function () {
             
             // Add price data for WETH in OracleAdapter (required for placeLadderOrders)
             const currentPrice = ethers.parseEther("3000"); // $3000 per WETH
-            await oracleAdapter.updatePrice(weth.target, currentPrice, 18);
+            const currentTimestamp = Math.floor(Date.now() / 1000);
+            await oracleAdapter.updatePrice(weth.target, currentPrice, currentTimestamp);
             
             // Place a buy order at $2950 (simulate)
             await bot.connect(botOwnerSigner).placeLadderOrders();
