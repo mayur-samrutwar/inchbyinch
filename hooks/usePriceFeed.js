@@ -158,7 +158,7 @@ export function usePriceFeed(symbols = ['ETH']) {
   // Initial fetch
   useEffect(() => {
     fetchPricesData(symbols);
-  }, [symbols, fetchPricesData]);
+  }, [symbols]); // Remove fetchPricesData from dependencies
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
@@ -167,7 +167,7 @@ export function usePriceFeed(symbols = ['ETH']) {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [symbols, fetchPricesData]);
+  }, [symbols]); // Remove fetchPricesData from dependencies
 
   const getPrice = useCallback((symbol) => {
     return prices[symbol]?.price || null;
@@ -234,7 +234,7 @@ export function useSinglePrice(symbol) {
 
   useEffect(() => {
     fetchPriceData();
-  }, [symbol, fetchPriceData]);
+  }, [symbol]); // Remove fetchPriceData from dependencies
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -242,7 +242,7 @@ export function useSinglePrice(symbol) {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [symbol, fetchPriceData]);
+  }, [symbol]); // Remove fetchPriceData from dependencies
 
   return {
     price: price?.price || null,
