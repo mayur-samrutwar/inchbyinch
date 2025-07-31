@@ -5,22 +5,30 @@ export default function WalletConnect({ onConnect, isConnected, account }) {
   const [isConnecting, setIsConnecting] = useState(false);
 
   const connectWallet = async () => {
-    if (typeof window.ethereum !== 'undefined') {
-      setIsConnecting(true);
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
-        
-        onConnect(accounts[0], provider, signer);
-      } catch (error) {
-        console.error('Error connecting wallet:', error);
-        alert('Failed to connect wallet: ' + error.message);
-      } finally {
-        setIsConnecting(false);
+    if (typeof window.ethereum === 'undefined') {
+      alert('Please install MetaMask or another Web3 wallet!');
+      return;
+    }
+
+    setIsConnecting(true);
+    try {
+      const accounts = await window.ethereum.request({ 
+        method: 'eth_requestAccounts' 
+      });
+      
+      if (!accounts || accounts.length === 0) {
+        throw new Error('No accounts found');
       }
-    } else {
-      alert('Please install MetaMask!');
+      
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      
+      onConnect(accounts[0], provider, signer);
+    } catch (error) {
+      console.error('Error connecting wallet:', error);
+      alert('Failed to connect wallet: ' + (error.message || 'Unknown error'));
+    } finally {
+      setIsConnecting(false);
     }
   };
 
@@ -30,15 +38,16 @@ export default function WalletConnect({ onConnect, isConnected, account }) {
 
   if (isConnected) {
     return (
-      <div className="flex items-center space-x-4">
-        <div className="bg-gray-100 rounded-lg p-3">
-          <p className="text-black font-mono text-sm">
+      <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 px-3 py-2 bg-gray-100 rounded-lg">
+          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+          <span className="text-sm font-medium text-gray-700">
             {account.slice(0, 6)}...{account.slice(-4)}
-          </p>
+          </span>
         </div>
         <button
           onClick={disconnectWallet}
-          className="bg-gray-200 hover:bg-gray-300 text-black px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="btn btn-ghost text-sm"
         >
           Disconnect
         </button>
@@ -50,7 +59,7 @@ export default function WalletConnect({ onConnect, isConnected, account }) {
     <button
       onClick={connectWallet}
       disabled={isConnecting}
-      className="bg-black hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-3 px-8 rounded-lg text-lg transition-colors"
+      className="btn btn-primary"
     >
       {isConnecting ? 'Connecting...' : 'Connect Wallet'}
     </button>

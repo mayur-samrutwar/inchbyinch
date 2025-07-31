@@ -1,78 +1,73 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSinglePrice } from '../hooks/usePriceFeed';
 
-export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) {
-  const [selectedPair, setSelectedPair] = useState('ETH/USDC');
-  const [startPrice, setStartPrice] = useState('3000');
-  const [spacing, setSpacing] = useState('50');
-  const [orderSize, setOrderSize] = useState('0.05');
-  const [numOrders, setNumOrders] = useState('10');
-  const [strategyType, setStrategyType] = useState('buy');
-  const [repostMode, setRepostMode] = useState('next');
-  const [budget, setBudget] = useState('1500');
-  const [isDeploying, setIsDeploying] = useState(false);
-  
-  // Advanced configuration
-  const [maxOrders, setMaxOrders] = useState('3');
-  const [cooldownMinutes, setCooldownMinutes] = useState('5');
-  const [floorPrice, setFloorPrice] = useState('2500');
-  const [stopLoss, setStopLoss] = useState('0');
-  const [fillPercentage, setFillPercentage] = useState('75');
-  const [postFillBehavior, setPostFillBehavior] = useState('next');
-  const [flipToSell, setFlipToSell] = useState(false);
-  const [flipPercentage, setFlipPercentage] = useState('10');
-  const [inactivityHours, setInactivityHours] = useState('6');
+const STEPS = [
+  { id: 1, title: 'Basic Setup', description: 'Token pair and strategy type' },
+  { id: 2, title: 'Order Configuration', description: 'Price range and order details' },
+  { id: 3, title: 'Advanced Settings', description: 'Optional advanced configuration' },
+  { id: 4, title: 'Review & Deploy', description: 'Review strategy and deploy' }
+];
 
-  // Get real ETH price for default start price
+export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) {
+  const [currentStep, setCurrentStep] = useState(1);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  
+  // Form state
+  const [formData, setFormData] = useState({
+    selectedPair: 'ETH/USDC',
+    strategyType: 'buy',
+    startPrice: '3000',
+    spacing: '50',
+    orderSize: '0.05',
+    numOrders: '10',
+    postFillBehavior: 'next',
+    budget: '1500',
+    // Advanced options
+    maxOrders: '3',
+    cooldownMinutes: '5',
+    floorPrice: '2500',
+    stopLoss: '0',
+    fillPercentage: '75',
+    flipToSell: false,
+    flipPercentage: '10',
+    inactivityHours: '6'
+  });
+
+  const [isDeploying, setIsDeploying] = useState(false);
+
+  // Get real ETH price
   const { price: ethPrice } = useSinglePrice('ETH');
 
   const TOKEN_PAIRS = [
-    { label: 'ETH/USDC', makerAsset: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', takerAsset: '0xA0b86a33E6441b8c4C8C1C1C0B8C4C8C1C1C0B8C4' },
-    { label: 'WETH/USDC', makerAsset: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', takerAsset: '0xA0b86a33E6441b8c4C8C1C1C0B8C4C8C1C1C0B8C4' },
-    { label: 'WBTC/ETH', makerAsset: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', takerAsset: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' }
+    { label: 'ETH/USDC', value: 'ETH/USDC' },
+    { label: 'WETH/USDC', value: 'WETH/USDC' },
+    { label: 'WBTC/ETH', value: 'WBTC/ETH' }
   ];
 
-  // Calculate total spend
-  const totalSpend = parseFloat(orderSize) * parseFloat(numOrders) * parseFloat(startPrice);
-  const endPrice = parseFloat(startPrice) - (parseFloat(numOrders) - 1) * parseFloat(spacing);
-  const averagePrice = (parseFloat(startPrice) + endPrice) / 2;
+  // Update form data
+  const updateFormData = useCallback((field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  }, []);
 
-  // Update preview when config changes
-  const updateConfig = (field, value) => {
-    const newConfig = {
-      selectedPair,
-      startPrice,
-      spacing,
-      orderSize,
-      numOrders,
-      strategyType,
-      repostMode,
-      budget,
-      maxOrders,
-      cooldownMinutes,
-      floorPrice,
-      stopLoss,
-      fillPercentage,
-      postFillBehavior,
-      flipToSell,
-      flipPercentage,
-      inactivityHours,
-      [field]: value
-    };
-    
+  // Update preview when form changes
+  useEffect(() => {
     if (onConfigChange) {
-      onConfigChange(newConfig);
+      onConfigChange(formData);
     }
-  };
+  }, [formData, onConfigChange]);
 
   // Update start price when ETH price changes
   useEffect(() => {
-    if (ethPrice && selectedPair.includes('ETH')) {
+    if (ethPrice && formData.selectedPair.includes('ETH')) {
       const newStartPrice = Math.round(ethPrice).toString();
-      setStartPrice(newStartPrice);
-      updateConfig('startPrice', newStartPrice);
+      updateFormData('startPrice', newStartPrice);
     }
-  }, [ethPrice, selectedPair, updateConfig]);
+  }, [ethPrice, formData.selectedPair, updateFormData]);
+
+  // Calculate totals
+  const totalSpend = parseFloat(formData.orderSize) * parseFloat(formData.numOrders) * parseFloat(formData.startPrice);
+  const endPrice = parseFloat(formData.startPrice) - (parseFloat(formData.numOrders) - 1) * parseFloat(formData.spacing);
+  const averagePrice = (parseFloat(formData.startPrice) + endPrice) / 2;
 
   const handleDeploy = async () => {
     if (!isConnected) {
@@ -80,34 +75,14 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
       return;
     }
 
-    if (totalSpend > parseFloat(budget)) {
+    if (totalSpend > parseFloat(formData.budget)) {
       alert('Total spend exceeds your budget! Please adjust order size or number of orders.');
       return;
     }
 
     setIsDeploying(true);
     try {
-      const strategy = {
-        selectedPair,
-        startPrice: parseFloat(startPrice),
-        spacing: parseFloat(spacing),
-        orderSize: parseFloat(orderSize),
-        numOrders: parseInt(numOrders),
-        strategyType,
-        repostMode,
-        budget: parseFloat(budget),
-        maxOrders: parseInt(maxOrders),
-        cooldownMinutes: parseInt(cooldownMinutes),
-        floorPrice: parseFloat(floorPrice),
-        stopLoss: parseFloat(stopLoss),
-        fillPercentage: parseInt(fillPercentage),
-        postFillBehavior,
-        flipToSell,
-        flipPercentage: parseFloat(flipPercentage),
-        inactivityHours: parseInt(inactivityHours)
-      };
-      
-      await onDeploy(strategy);
+      await onDeploy(formData);
     } catch (error) {
       console.error('Error deploying strategy:', error);
       alert('Error deploying strategy: ' + error.message);
@@ -116,37 +91,55 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
     }
   };
 
-  return (
-    <div className="bg-gray-50 rounded-2xl p-8 border border-gray-200">
-      <h2 className="text-2xl font-light text-black mb-8">Strategy Configuration</h2>
-      
-      {/* Token Pair Selection */}
-      <div className="mb-8">
-        <label className="block text-gray-700 text-sm font-medium mb-3">
-          Token Pair
-        </label>
+  const nextStep = () => {
+    if (currentStep < STEPS.length) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const renderStepIndicator = () => (
+    <div className="step-indicator">
+      {STEPS.map((step, index) => (
+        <div key={step.id} className="flex items-center">
+          <div className={`step ${
+            currentStep === step.id ? 'step-active' : 
+            currentStep > step.id ? 'step-completed' : 'step-inactive'
+          }`}>
+            <div className="step-number">{step.id}</div>
+            <span className="hidden sm:inline">{step.title}</span>
+          </div>
+          {index < STEPS.length - 1 && <div className="step-divider"></div>}
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderStep1 = () => (
+    <div className="fade-in space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Token Pair</h3>
         <select
-          value={selectedPair}
-          onChange={(e) => {
-            setSelectedPair(e.target.value);
-            updateConfig('selectedPair', e.target.value);
-          }}
-          className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+          value={formData.selectedPair}
+          onChange={(e) => updateFormData('selectedPair', e.target.value)}
+          className="select"
         >
           {TOKEN_PAIRS.map((pair) => (
-            <option key={pair.label} value={pair.label} className="bg-white text-black">
+            <option key={pair.value} value={pair.value}>
               {pair.label}
             </option>
           ))}
         </select>
       </div>
 
-      {/* Strategy Type */}
-      <div className="mb-8">
-        <label className="block text-gray-700 text-sm font-medium mb-3">
-          Strategy Type
-        </label>
-        <div className="grid grid-cols-3 gap-3">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Strategy Type</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { value: 'buy', label: 'Buy Range', desc: 'Buy below current price' },
             { value: 'sell', label: 'Sell Range', desc: 'Sell above current price' },
@@ -154,98 +147,86 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
           ].map((type) => (
             <button
               key={type.value}
-              onClick={() => {
-                setStrategyType(type.value);
-                updateConfig('strategyType', type.value);
-              }}
-              className={`p-4 rounded-lg border transition-all ${
-                strategyType === type.value
-                  ? 'bg-black border-black text-white'
-                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+              onClick={() => updateFormData('strategyType', type.value)}
+              className={`p-4 rounded-lg border transition-all text-left ${
+                formData.strategyType === type.value
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-200 hover:border-gray-300'
               }`}
             >
               <div className="font-medium">{type.label}</div>
-              <div className="text-xs opacity-75">{type.desc}</div>
+              <div className="text-sm text-gray-500">{type.desc}</div>
             </button>
           ))}
         </div>
       </div>
+    </div>
+  );
 
-      {/* Price Configuration */}
-      <div className="grid grid-cols-2 gap-6 mb-8">
+  const renderStep2 = () => (
+    <div className="fade-in space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-gray-700 text-sm font-medium mb-3">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             Starting Price ($)
           </label>
           <input
             type="number"
-            value={startPrice}
-            onChange={(e) => {
-              setStartPrice(e.target.value);
-              updateConfig('startPrice', e.target.value);
-            }}
-            className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+            value={formData.startPrice}
+            onChange={(e) => updateFormData('startPrice', e.target.value)}
+            className="input"
             placeholder="3000"
           />
         </div>
         <div>
-          <label className="block text-gray-700 text-sm font-medium mb-3">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             Distance Between Orders ($)
           </label>
           <input
             type="number"
-            value={spacing}
-            onChange={(e) => {
-              setSpacing(e.target.value);
-              updateConfig('spacing', e.target.value);
-            }}
-            className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+            value={formData.spacing}
+            onChange={(e) => updateFormData('spacing', e.target.value)}
+            className="input"
             placeholder="50"
           />
         </div>
       </div>
 
-      {/* Order Configuration */}
-      <div className="grid grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-gray-700 text-sm font-medium mb-3">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             Order Size (ETH)
           </label>
           <input
             type="number"
             step="0.01"
-            value={orderSize}
-            onChange={(e) => {
-              setOrderSize(e.target.value);
-              updateConfig('orderSize', e.target.value);
-            }}
-            className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+            value={formData.orderSize}
+            onChange={(e) => updateFormData('orderSize', e.target.value)}
+            className="input"
             placeholder="0.05"
           />
         </div>
         <div>
-          <label className="block text-gray-700 text-sm font-medium mb-3">
-            Total Buy Levels
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Number of Orders
           </label>
           <input
             type="number"
-            value={numOrders}
-            onChange={(e) => {
-              setNumOrders(e.target.value);
-              updateConfig('numOrders', e.target.value);
-            }}
-            className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+            value={formData.numOrders}
+            onChange={(e) => updateFormData('numOrders', e.target.value)}
+            className="input"
             placeholder="10"
+            min="1"
+            max="50"
           />
         </div>
       </div>
 
-      {/* Post-Fill Behavior */}
-      <div className="mb-8">
-        <label className="block text-gray-700 text-sm font-medium mb-3">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
           Post-Fill Behavior
         </label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { value: 'next', label: 'Next Level', desc: 'Move to next price level' },
             { value: 'same', label: 'Same Price', desc: 'Repost at same level' },
@@ -253,223 +234,244 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
           ].map((mode) => (
             <button
               key={mode.value}
-              onClick={() => {
-                setPostFillBehavior(mode.value);
-                updateConfig('postFillBehavior', mode.value);
-              }}
-              className={`p-4 rounded-lg border transition-all ${
-                postFillBehavior === mode.value
-                  ? 'bg-black border-black text-white'
-                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+              onClick={() => updateFormData('postFillBehavior', mode.value)}
+              className={`p-4 rounded-lg border transition-all text-left ${
+                formData.postFillBehavior === mode.value
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-200 hover:border-gray-300'
               }`}
             >
               <div className="font-medium">{mode.label}</div>
-              <div className="text-xs opacity-75">{mode.desc}</div>
+              <div className="text-sm text-gray-500">{mode.desc}</div>
             </button>
           ))}
         </div>
       </div>
+    </div>
+  );
 
-      {/* Advanced Configuration */}
-      <div className="mb-8">
-        <h3 className="text-lg font-semibold text-black mb-6">Advanced Configuration</h3>
-        <div className="grid grid-cols-2 gap-6">
-          <div>
-            <label className="block text-gray-700 text-sm font-medium mb-3">
-              Max Orders Posted at Once
-            </label>
-            <input
-              type="number"
-              value={maxOrders}
-              onChange={(e) => {
-                setMaxOrders(e.target.value);
-                updateConfig('maxOrders', e.target.value);
-              }}
-              className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
-              placeholder="3"
-            />
-          </div>
-          <div>
-            <label className="block text-gray-700 text-sm font-medium mb-3">
-              Cooldown Between Fills (minutes)
-            </label>
-            <input
-              type="number"
-              value={cooldownMinutes}
-              onChange={(e) => {
-                setCooldownMinutes(e.target.value);
-                updateConfig('cooldownMinutes', e.target.value);
-              }}
-              className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="5"
-            />
-          </div>
-          <div>
-            <label className="block text-blue-200 text-sm font-medium mb-2">
-              Floor Price ($)
-            </label>
-            <input
-              type="number"
-              value={floorPrice}
-              onChange={(e) => {
-                setFloorPrice(e.target.value);
-                updateConfig('floorPrice', e.target.value);
-              }}
-              className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="2500"
-            />
-          </div>
-          <div>
-            <label className="block text-blue-200 text-sm font-medium mb-2">
-              Fill Percentage to Trigger (%)
-            </label>
-            <input
-              type="number"
-              value={fillPercentage}
-              onChange={(e) => {
-                setFillPercentage(e.target.value);
-                updateConfig('fillPercentage', e.target.value);
-              }}
-              className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="75"
-            />
-          </div>
-        </div>
+  const renderStep3 = () => (
+    <div className="fade-in space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">Advanced Configuration</h3>
+        <button
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="btn btn-ghost text-sm"
+        >
+          {showAdvanced ? 'Hide' : 'Show'} Advanced
+        </button>
       </div>
 
-      {/* Flip to Sell Option */}
-      <div className="mb-6">
-        <div className="flex items-center space-x-3 mb-4">
-          <input
-            type="checkbox"
-            id="flipToSell"
-            checked={flipToSell}
-            onChange={(e) => {
-              setFlipToSell(e.target.checked);
-              updateConfig('flipToSell', e.target.checked);
-            }}
-            className="w-4 h-4 text-blue-600 bg-white/10 border-white/20 rounded focus:ring-blue-500"
-          />
-          <label htmlFor="flipToSell" className="text-blue-200 font-medium">
-            Flip to SELL at +X% from fill price
-          </label>
-        </div>
-        {flipToSell && (
-          <div className="grid grid-cols-2 gap-4">
+      {showAdvanced && (
+        <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-blue-200 text-sm font-medium mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Max Orders Posted at Once
+              </label>
+              <input
+                type="number"
+                value={formData.maxOrders}
+                onChange={(e) => updateFormData('maxOrders', e.target.value)}
+                className="input"
+                placeholder="3"
+                min="1"
+                max="10"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Cooldown Between Fills (minutes)
+              </label>
+              <input
+                type="number"
+                value={formData.cooldownMinutes}
+                onChange={(e) => updateFormData('cooldownMinutes', e.target.value)}
+                className="input"
+                placeholder="5"
+                min="1"
+                max="60"
+              />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Floor Price ($)
+              </label>
+              <input
+                type="number"
+                value={formData.floorPrice}
+                onChange={(e) => updateFormData('floorPrice', e.target.value)}
+                className="input"
+                placeholder="2500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Fill Percentage (%)
+              </label>
+              <input
+                type="number"
+                value={formData.fillPercentage}
+                onChange={(e) => updateFormData('fillPercentage', e.target.value)}
+                className="input"
+                placeholder="75"
+                min="1"
+                max="100"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="flipToSell"
+              checked={formData.flipToSell}
+              onChange={(e) => updateFormData('flipToSell', e.target.checked)}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="flipToSell" className="text-sm font-medium text-gray-700">
+              Flip to Sell after Buy
+            </label>
+          </div>
+
+          {formData.flipToSell && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Flip Percentage (%)
               </label>
               <input
                 type="number"
-                value={flipPercentage}
-                onChange={(e) => {
-                  setFlipPercentage(e.target.value);
-                  updateConfig('flipPercentage', e.target.value);
-                }}
-                className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={formData.flipPercentage}
+                onChange={(e) => updateFormData('flipPercentage', e.target.value)}
+                className="input"
                 placeholder="10"
+                min="1"
+                max="50"
               />
             </div>
-          </div>
+          )}
+        </div>
+      )}
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Budget ($)
+        </label>
+        <input
+          type="number"
+          value={formData.budget}
+          onChange={(e) => updateFormData('budget', e.target.value)}
+          className="input"
+          placeholder="1500"
+        />
+        {totalSpend > parseFloat(formData.budget) && (
+          <p className="text-red-500 text-xs mt-1">Total spend exceeds budget</p>
         )}
       </div>
+    </div>
+  );
 
-      {/* Safety & Budget Controls */}
-      <div className="mb-8">
-        <h3 className="text-lg font-semibold text-black mb-6">Safety & Budget Controls</h3>
-        <div className="grid grid-cols-2 gap-6">
-          <div>
-            <label className="block text-gray-700 text-sm font-medium mb-3">
-              Max Total Spend ($)
-            </label>
-            <input
-              type="number"
-              value={budget}
-              onChange={(e) => {
-                setBudget(e.target.value);
-                updateConfig('budget', e.target.value);
-              }}
-              className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
-              placeholder="1500"
-            />
-          </div>
-          <div>
-            <label className="block text-gray-700 text-sm font-medium mb-3">
-              Cancel All If Inactive (hours)
-            </label>
-            <input
-              type="number"
-              value={inactivityHours}
-              onChange={(e) => {
-                setInactivityHours(e.target.value);
-                updateConfig('inactivityHours', e.target.value);
-              }}
-              className="w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-black focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
-              placeholder="6"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Strategy Summary */}
-      <div className="mb-8 bg-white rounded-lg p-6 border border-gray-200">
-        <h3 className="text-black font-semibold mb-4">Strategy Summary</h3>
-        <div className="grid grid-cols-2 gap-6 text-sm">
+  const renderStep4 = () => (
+    <div className="fade-in space-y-6">
+      <div className="card p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Strategy Summary</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
           <div className="space-y-3">
             <div className="flex justify-between">
+              <span className="text-gray-600">Token Pair:</span>
+              <span className="font-medium">{formData.selectedPair}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Strategy Type:</span>
+              <span className="font-medium capitalize">{formData.strategyType}</span>
+            </div>
+            <div className="flex justify-between">
               <span className="text-gray-600">Total Orders:</span>
-              <span className="text-black font-medium">{numOrders}</span>
+              <span className="font-medium">{formData.numOrders}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Order Size:</span>
-              <span className="text-black font-medium">{orderSize} ETH</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Price Range:</span>
-              <span className="text-black font-medium">${endPrice.toFixed(2)} - ${startPrice}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Average Price:</span>
-              <span className="text-black font-medium">${averagePrice.toFixed(2)}</span>
+              <span className="font-medium">{formData.orderSize} ETH</span>
             </div>
           </div>
           <div className="space-y-3">
             <div className="flex justify-between">
+              <span className="text-gray-600">Price Range:</span>
+              <span className="font-medium">${endPrice.toFixed(2)} - ${formData.startPrice}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Average Price:</span>
+              <span className="font-medium">${averagePrice.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
               <span className="text-gray-600">Total Spend:</span>
-              <span className={`font-semibold ${totalSpend > parseFloat(budget) ? 'text-red-600' : 'text-black'}`}>
+              <span className={`font-medium ${totalSpend > parseFloat(formData.budget) ? 'text-red-500' : ''}`}>
                 ${totalSpend.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Budget:</span>
-              <span className="text-black font-medium">${budget}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Post-Fill:</span>
-              <span className="text-black font-medium capitalize">{postFillBehavior}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Max Orders:</span>
-              <span className="text-black font-medium">{maxOrders}</span>
+              <span className="font-medium">${formData.budget}</span>
             </div>
           </div>
         </div>
-        {totalSpend > parseFloat(budget) && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-            ⚠️ Total spend exceeds budget! Please adjust order size or number of orders.
-          </div>
-        )}
       </div>
 
-      {/* Deploy Button */}
-      <button
-        onClick={handleDeploy}
-        disabled={!isConnected || isDeploying || totalSpend > parseFloat(budget)}
-        className="w-full bg-black hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-4 px-6 rounded-lg text-lg transition-colors"
-      >
-        {isDeploying ? 'Deploying...' : 'Deploy Strategy'}
-      </button>
+      {totalSpend > parseFloat(formData.budget) && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-600 text-sm">
+            ⚠️ Total spend exceeds budget! Please go back and adjust your configuration.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1: return renderStep1();
+      case 2: return renderStep2();
+      case 3: return renderStep3();
+      case 4: return renderStep4();
+      default: return null;
+    }
+  };
+
+  return (
+    <div className="card p-8">
+      {renderStepIndicator()}
+      
+      {renderStepContent()}
+      
+      <div className="flex justify-between mt-8">
+        <button
+          onClick={prevStep}
+          disabled={currentStep === 1}
+          className="btn btn-secondary"
+        >
+          Previous
+        </button>
+        
+        {currentStep < STEPS.length ? (
+          <button
+            onClick={nextStep}
+            className="btn btn-primary"
+          >
+            Next
+          </button>
+        ) : (
+          <button
+            onClick={handleDeploy}
+            disabled={!isConnected || isDeploying || totalSpend > parseFloat(formData.budget)}
+            className="btn btn-primary"
+          >
+            {isDeploying ? 'Deploying...' : 'Deploy Strategy'}
+          </button>
+        )}
+      </div>
     </div>
   );
 } 

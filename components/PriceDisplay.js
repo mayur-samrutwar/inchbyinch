@@ -1,165 +1,84 @@
 import { useSinglePrice } from '../hooks/usePriceFeed';
 
-/**
- * Price display component with real-time updates
- */
-export default function PriceDisplay({ 
-  symbol = 'ETH', 
-  showChange = true, 
-  showSource = false,
-  className = '',
-  size = 'lg' // sm, md, lg, xl
-}) {
-  const { price, change24h, source, loading, error, lastUpdate } = useSinglePrice(symbol);
+export default function PriceDisplay({ symbol, size = 'md', showChange = false, showSource = false }) {
+  const { price, loading, error, priceChange24h, source } = useSinglePrice(symbol);
 
-  const sizeClasses = {
-    sm: 'text-sm',
-    md: 'text-lg',
-    lg: 'text-2xl',
-    xl: 'text-3xl'
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center space-x-2">
+        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+        <span className="text-gray-500 text-sm">Loading...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <span className="text-red-500 text-sm">Error loading price</span>;
+  }
+
+  if (!price) {
+    return <span className="text-gray-500 text-sm">Price unavailable</span>;
+  }
 
   const formatPrice = (price) => {
-    if (!price) return 'N/A';
-    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    
-    if (numPrice >= 1000) {
-      return `$${numPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    } else {
-      return `$${numPrice.toFixed(2)}`;
+    if (price >= 1000) {
+      return `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
+    return `$${price.toFixed(4)}`;
   };
 
   const formatChange = (change) => {
-    if (!change) return '';
-    const sign = change >= 0 ? '+' : '';
+    if (!change) return null;
+    const sign = change > 0 ? '+' : '';
     return `${sign}${change.toFixed(2)}%`;
   };
 
-  const getChangeColor = (change) => {
-    if (!change) return 'text-gray-400';
-    return change >= 0 ? 'text-green-600' : 'text-red-600';
-  };
-
-  const getSourceColor = (source) => {
-    switch (source) {
-      case 'coingecko': return 'text-gray-500';
-      case 'coincap': return 'text-gray-500';
-      default: return 'text-gray-400';
+  const getSizeClasses = (size) => {
+    switch (size) {
+      case 'xl':
+        return 'text-3xl font-bold';
+      case 'lg':
+        return 'text-2xl font-semibold';
+      case 'md':
+        return 'text-xl font-semibold';
+      case 'sm':
+        return 'text-lg font-medium';
+      default:
+        return 'text-xl font-semibold';
     }
   };
 
-  if (loading) {
-    return (
-      <div className={`flex items-center space-x-2 ${className}`}>
-        <div className={`${sizeClasses[size]} font-semibold text-black`}>
-          Loading...
-        </div>
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-black"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className={`${className}`}>
-        <div className={`${sizeClasses[size]} font-semibold text-red-600`}>
-          Error loading price
-        </div>
-        <div className="text-xs text-red-500">
-          {error}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className={`${className}`}>
-      <div className={`${sizeClasses[size]} font-semibold text-black`}>
-        {formatPrice(price)}
+    <div className="space-y-1">
+      <div className="flex items-center space-x-3">
+        <span className={`text-gray-900 ${getSizeClasses(size)}`}>
+          {formatPrice(price)}
+        </span>
+        {showChange && priceChange24h && (
+          <span className={`text-sm font-medium ${
+            priceChange24h > 0 ? 'text-green-500' : 'text-red-500'
+          }`}>
+            {formatChange(priceChange24h)}
+          </span>
+        )}
       </div>
       
-      {showChange && change24h !== null && (
-        <div className={`text-sm ${getChangeColor(change24h)}`}>
-          {formatChange(change24h)}
-        </div>
-      )}
-      
-      {showSource && source && (
-        <div className={`text-xs ${getSourceColor(source)}`}>
-          via {source}
-        </div>
-      )}
-      
-      {lastUpdate && (
-        <div className="text-xs text-gray-500">
-          Updated {lastUpdate.toLocaleTimeString()}
+      {showSource && (
+        <div className="flex items-center justify-between text-xs text-gray-500">
+          <span>via {source}</span>
         </div>
       )}
     </div>
   );
 }
 
-/**
- * Compact price display for small spaces
- */
-export function CompactPriceDisplay({ symbol = 'ETH', className = '' }) {
-  const { price, change24h, loading, error } = useSinglePrice(symbol);
-
-  if (loading) {
-    return (
-      <div className={`flex items-center space-x-1 ${className}`}>
-        <div className="text-sm text-black">Loading...</div>
-        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-black"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className={`text-sm text-red-600 ${className}`}>
-        Error
-      </div>
-    );
-  }
-
-  const formatPrice = (price) => {
-    if (!price) return 'N/A';
-    const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-    return `$${numPrice.toFixed(2)}`;
-  };
-
-  const formatChange = (change) => {
-    if (!change) return '';
-    const sign = change >= 0 ? '+' : '';
-    return `${sign}${change.toFixed(1)}%`;
-  };
-
-  const getChangeColor = (change) => {
-    if (!change) return 'text-gray-400';
-    return change >= 0 ? 'text-green-600' : 'text-red-600';
-  };
-
-  return (
-    <div className={`flex items-center space-x-2 ${className}`}>
-      <div className="text-sm font-semibold text-black">
-        {formatPrice(price)}
-      </div>
-      {change24h !== null && (
-        <div className={`text-xs ${getChangeColor(change24h)}`}>
-          {formatChange(change24h)}
-        </div>
-      )}
-    </div>
-  );
+export function CompactPriceDisplay({ symbol }) {
+  return <PriceDisplay symbol={symbol} size="sm" />;
 }
 
-/**
- * Price ticker component for multiple symbols
- */
-export function PriceTicker({ symbols = ['ETH', 'USDC'], className = '' }) {
+export function PriceTicker({ symbols = ['ETH', 'BTC', 'USDC'] }) {
   return (
-    <div className={`flex items-center space-x-4 ${className}`}>
+    <div className="flex items-center space-x-6">
       {symbols.map((symbol) => (
         <CompactPriceDisplay key={symbol} symbol={symbol} />
       ))}
