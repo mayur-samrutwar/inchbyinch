@@ -134,6 +134,24 @@ export function parseTokenAmount(amount, decimals = 18) {
   return parseEther(amount.toString());
 }
 
+// Estimate gas with buffer for safe transactions
+export async function estimateGasWithBuffer(contract, functionName, args, buffer = 1.2) {
+  try {
+    // For Viem contracts, we need to simulate the call to estimate gas
+    const gasEstimate = await contract.estimateGas({
+      functionName,
+      args
+    });
+    
+    // Add buffer for safety
+    return Math.floor(Number(gasEstimate) * buffer);
+  } catch (error) {
+    console.error('Error estimating gas:', error);
+    // Return a safe default if estimation fails
+    return 300000; // 300k gas as fallback
+  }
+}
+
 // Default export
 export default {
   NETWORK,

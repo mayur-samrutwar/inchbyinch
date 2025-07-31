@@ -100,8 +100,6 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="text-center mb-16">
-
-          
           {/* Current Price Display */}
           <div className="inline-flex items-center space-x-4 p-4 bg-white rounded-lg shadow-sm border border-gray-200">
             <span className="text-sm text-gray-500">Current ETH Price:</span>
@@ -144,47 +142,23 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Active Orders Section */}
-        <div className="mt-16 card p-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-8">Active Orders</h2>
-          
-          {!isConnected ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500">Connect your wallet to view active orders</p>
+        {/* Quick Access to Dashboard */}
+        {isConnected && (
+          <div className="mt-16 max-w-4xl mx-auto">
+            <div className="card p-8 text-center">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">View Your Active Orders</h2>
+              <p className="text-gray-600 mb-6">
+                Monitor your deployed strategies and active orders in the dashboard.
+              </p>
+              <a 
+                href="/dashboard" 
+                className="btn btn-primary"
+              >
+                Go to Dashboard
+              </a>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-gray-600 font-medium py-4">Order ID</th>
-                    <th className="text-gray-600 font-medium py-4">Token Pair</th>
-                    <th className="text-gray-600 font-medium py-4">Price</th>
-                    <th className="text-gray-600 font-medium py-4">Size</th>
-                    <th className="text-gray-600 font-medium py-4">Status</th>
-                    <th className="text-gray-600 font-medium py-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-b border-gray-100">
-                    <td className="py-4 text-gray-900 font-mono">#001</td>
-                    <td className="py-4 text-gray-900">ETH/USDC</td>
-                    <td className="py-4 text-gray-900">$3,200.00</td>
-                    <td className="py-4 text-gray-900">0.1 ETH</td>
-                    <td className="py-4">
-                      <span className="badge badge-success">Active</span>
-                    </td>
-                    <td className="py-4">
-                      <button className="btn btn-secondary text-sm">
-                        Cancel
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </main>
     </div>
   );
