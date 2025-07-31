@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import { ethers } from 'ethers';
 import WalletConnect from '../components/WalletConnect';
@@ -28,7 +28,7 @@ export default function Dashboard() {
   };
 
   // Load active orders
-  const loadActiveOrders = async () => {
+  const loadActiveOrders = useCallback(async () => {
     if (!isConnected || !signer) return;
 
     setLoading(true);
@@ -61,13 +61,13 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isConnected, signer]);
 
   useEffect(() => {
     if (isConnected) {
       loadActiveOrders();
     }
-  }, [isConnected]);
+  }, [isConnected, loadActiveOrders]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900">

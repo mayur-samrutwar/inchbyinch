@@ -107,7 +107,7 @@ export default function Docs() {
                 <div className="bg-white/5 rounded-lg p-4">
                   <h3 className="text-lg font-semibold text-white mb-2">Skip</h3>
                   <p className="text-blue-200 text-sm">
-                    Don't repost after an order is filled. This reduces your position size as 
+                    Don&apos;t repost after an order is filled. This reduces your position size as 
                     orders get filled.
                   </p>
                 </div>
@@ -144,7 +144,7 @@ export default function Docs() {
                 <div>
                   <h3 className="text-lg font-semibold text-white mb-2">1. Connect Wallet</h3>
                   <p className="text-blue-200">
-                    Connect your MetaMask wallet to the application. Make sure you're connected to the Sepolia testnet.
+                    Connect your MetaMask wallet to the application. Make sure you&apos;re connected to the Sepolia testnet.
                   </p>
                 </div>
                 <div>
@@ -157,7 +157,7 @@ export default function Docs() {
                 <div>
                   <h3 className="text-lg font-semibold text-white mb-2">3. Deploy Strategy</h3>
                   <p className="text-blue-200">
-                    Click "Deploy Strategy" to deploy your bot. This will create a smart contract 
+                    Click &quot;Deploy Strategy&quot; to deploy your bot. This will create a smart contract 
                     that manages your ladder orders.
                   </p>
                 </div>
