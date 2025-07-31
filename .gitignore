@@ -45,7 +45,7 @@ next-env.d.ts
 
 # hardhat
 /cache
-/artifact
+/artifacts
 typechain/
 typechain-types/
 
