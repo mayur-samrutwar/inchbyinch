@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Head from 'next/head';
 import { ethers } from 'ethers';
 import WalletConnect from '../components/WalletConnect';
@@ -15,7 +15,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
 
   // Price feed for ETH
-  const { getPrice, getFormattedPrice } = usePriceFeed(['ETH']);
+  const symbols = useMemo(() => ['ETH'], []);
+  const { getPrice, getFormattedPrice } = usePriceFeed(symbols);
 
   // Contract addresses
   const CONTRACT_ADDRESSES = {

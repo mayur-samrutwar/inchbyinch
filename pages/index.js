@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Head from 'next/head';
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
 import StrategyForm from '../components/StrategyForm';
@@ -15,7 +15,8 @@ export default function Home() {
   const { data: walletClient } = useWalletClient();
   
   // Price feed for ETH
-  const { getPrice, getFormattedPrice, getPriceChange, getFormattedPriceChange, getPriceChangeColor } = usePriceFeed(['ETH']);
+  const symbols = useMemo(() => ['ETH'], []);
+  const { getPrice, getFormattedPrice, getPriceChange, getFormattedPriceChange, getPriceChangeColor } = usePriceFeed(symbols);
   
   // Strategy preview state
   const [previewConfig, setPreviewConfig] = useState({
