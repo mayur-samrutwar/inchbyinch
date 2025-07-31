@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/I1inchLOP.sol";
 import "./interfaces/IOrderManager.sol";
 import "./interfaces/IOracleAdapter.sol";
+import "./LOPAdapter.sol";
 
 /**
  * @title inchbyinchBot
@@ -74,6 +75,7 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
     
     // External contracts
     I1inchLOP public lop;
+    LOPAdapter public lopAdapter;
     IOrderManager public orderManager;
     IOracleAdapter public oracleAdapter;
     
@@ -187,17 +189,20 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Initializes the bot with external contracts
      * @param _lop The LOP contract address
+     * @param _lopAdapter The LOP adapter address
      * @param _orderManager The order manager address
      * @param _oracleAdapter The oracle adapter address
      */
     function initialize(
         address _lop,
+        address _lopAdapter,
         address _orderManager,
         address _oracleAdapter,
         address owner_
-    ) external validAddress(_lop) validAddress(_orderManager) validAddress(_oracleAdapter) validAddress(owner_) {
+    ) external validAddress(_lop) validAddress(_lopAdapter) validAddress(_orderManager) validAddress(_oracleAdapter) validAddress(owner_) {
         require(address(lop) == address(0), "Already initialized");
         lop = I1inchLOP(_lop);
+        lopAdapter = LOPAdapter(payable(_lopAdapter));
         orderManager = IOrderManager(_orderManager);
         oracleAdapter = IOracleAdapter(_oracleAdapter);
         _transferOwnership(owner_);
@@ -524,21 +529,28 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
     function _placeOrder(uint256 price, uint256 size, bool isBuy) private {
         strategy.currentOrderIndex++;
         
-        // Create LOP order
-        I1inchLOP.Order memory lopOrder = I1inchLOP.Order({
-            salt: uint256(keccak256(abi.encodePacked(block.timestamp, strategy.currentOrderIndex))),
-            makerAsset: isBuy ? strategy.takerAsset : strategy.makerAsset,
-            takerAsset: isBuy ? strategy.makerAsset : strategy.takerAsset,
-            maker: address(this),
-            receiver: address(this),
-            allowedSender: address(0),
-            makingAmount: size,
-            takingAmount: (size * price) / 1e18,
-            offsets: 0,
-            interactions: abi.encodeWithSignature("handleOrderFill(bytes32,uint256,uint256)", bytes32(0), uint256(0), uint256(0))
-        });
+        // Calculate amounts
+        uint256 makingAmount = size;
+        uint256 takingAmount = (size * price) / 1e18;
         
-        bytes32 orderHash = lop.getOrderHash(lopOrder);
+        // Create interaction data for callback
+        bytes memory interactions = abi.encodeWithSignature(
+            "handleOrderFill(bytes32,uint256,uint256)",
+            bytes32(0), // Will be set by LOP adapter
+            uint256(0),
+            uint256(0)
+        );
+        
+        // Create order through LOP adapter
+        bytes32 orderHash = lopAdapter.createOrder(
+            isBuy ? strategy.takerAsset : strategy.makerAsset, // makerAsset
+            isBuy ? strategy.makerAsset : strategy.takerAsset, // takerAsset
+            makingAmount,
+            takingAmount,
+            address(this), // receiver
+            address(0), // allowedSender
+            interactions
+        );
         
         // Store order
         orders[strategy.currentOrderIndex] = Order({
@@ -555,10 +567,10 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
         orderManager.registerOrder(
             orderHash,
             address(this),
-            lopOrder.makerAsset,
-            lopOrder.takerAsset,
-            lopOrder.makingAmount,
-            lopOrder.takingAmount
+            isBuy ? strategy.takerAsset : strategy.makerAsset,
+            isBuy ? strategy.makerAsset : strategy.takerAsset,
+            makingAmount,
+            takingAmount
         );
         
         emit OrderPlaced(orderHash, strategy.currentOrderIndex, price, size);
@@ -601,7 +613,7 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
     function _cancelOrder(uint256 orderIndex) private {
         Order storage order = orders[orderIndex];
         
-        // Cancel in LOP
+        // Create order structure for cancellation
         I1inchLOP.Order memory lopOrder = I1inchLOP.Order({
             salt: uint256(keccak256(abi.encodePacked(block.timestamp, orderIndex))),
             makerAsset: strategy.makerAsset,
@@ -615,7 +627,8 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
             interactions: ""
         });
         
-        lop.cancelOrder(lopOrder);
+        // Cancel through LOP adapter
+        lopAdapter.cancelOrder(lopOrder);
         
         // Update order
         order.isActive = false;

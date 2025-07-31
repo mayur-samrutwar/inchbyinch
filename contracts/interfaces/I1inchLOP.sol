@@ -84,4 +84,32 @@ interface I1inchLOP {
      * @return remainingAmount The remaining amount
      */
     function remaining(Order calldata order) external view returns (uint256 remainingAmount);
+
+    /**
+     * @notice Fills an order with RFQ
+     * @param order The order structure
+     * @param signature The signature for the order
+     * @param interaction The interaction data for custom callbacks
+     * @return makingAmount The amount of maker asset that was filled
+     * @return takingAmount The amount of taker asset that was filled
+     */
+    function fillOrderRFQ(
+        OrderRFQ calldata order,
+        bytes calldata signature,
+        bytes calldata interaction
+    ) external payable returns (uint256 makingAmount, uint256 takingAmount);
+
+    /**
+     * @notice Gets the order hash for RFQ orders
+     * @param order The order
+     * @return orderHash The hash of the order
+     */
+    function getOrderRFQHash(OrderRFQ calldata order) external view returns (bytes32 orderHash);
+
+    /**
+     * @notice Checks if an RFQ order is valid
+     * @param order The order to check
+     * @return isValid Whether the order is valid
+     */
+    function checkOrderRFQ(OrderRFQ calldata order) external view returns (bool isValid);
 } 
