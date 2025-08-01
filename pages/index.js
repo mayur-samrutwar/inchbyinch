@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
 import Head from 'next/head';
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
+import { getAddress } from 'viem';
 import StrategyForm from '../components/StrategyForm';
 import Navigation from '../components/Navigation';
 import PriceDisplay from '../components/PriceDisplay';
 import { usePriceFeed } from '../hooks/usePriceFeed';
 import { baseSepolia } from 'wagmi/chains';
+import { parseUnits } from 'viem';
 
 export default function Home() {
   // Wagmi hooks
@@ -66,11 +68,54 @@ export default function Home() {
       const botDeployment = await contractService.deployBot(address);
       console.log('Bot deployed at:', botDeployment.botAddress);
 
+      if (botDeployment.isExisting) {
+        console.log('Using existing bot:', botDeployment.botAddress);
+      } else {
+        console.log('New bot deployed:', botDeployment.botAddress);
+      }
+
+      // Map form data to contract parameters
+      const contractParams = {
+        // Token addresses for Base Sepolia (properly checksummed)
+        makerAsset: getAddress('0x4200000000000000000000000000000000000006'), // WETH
+        takerAsset: getAddress('0x036cbd53842c5426634e7929541ec2318f3dcf7e'), // USDC (corrected)
+        
+        // Strategy parameters
+        startPrice: strategyConfig.startPrice,
+        spacing: strategyConfig.spacing,
+        orderSize: strategyConfig.orderSize,
+        numOrders: parseInt(strategyConfig.numOrders),
+        strategyType: strategyConfig.strategyType === 'buy' ? 0 : strategyConfig.strategyType === 'sell' ? 1 : 2, // 0=buy, 1=sell, 2=both
+        repostMode: strategyConfig.postFillBehavior === 'next' ? 0 : strategyConfig.postFillBehavior === 'same' ? 1 : 2, // 0=next, 1=same, 2=stop
+        budget: strategyConfig.budget,
+        stopLoss: strategyConfig.floorPrice || '0',
+        takeProfit: '0', // Not used for now
+        expiryTime: parseInt(strategyConfig.inactivityHours || '6'),
+        flipToSell: strategyConfig.flipToSell || false,
+        flipPercentage: parseInt(strategyConfig.flipPercentage || '0')
+      };
+
+      console.log('Contract parameters:', contractParams);
+
+      // Transfer tokens to bot if needed for buy strategy
+      if (contractParams.strategyType === 0) { // BUY_LADDER
+        console.log('Transferring USDC to bot for buy strategy...');
+        const usdcAmount = parseUnits(contractParams.budget, 6); // USDC has 6 decimals
+        await contractService.transferTokensToBot(
+          botDeployment.botAddress,
+          contractParams.takerAsset, // USDC
+          usdcAmount,
+          address
+        );
+        console.log('USDC transferred to bot');
+      }
+
       // Create strategy on the bot
       console.log('Creating strategy...');
       const strategyCreation = await contractService.createStrategy(
         botDeployment.botAddress,
-        strategyConfig
+        contractParams,
+        address // Pass the user's address
       );
       console.log('Strategy created:', strategyCreation.txHash);
 
@@ -79,7 +124,11 @@ export default function Home() {
       const orderPlacement = await contractService.placeLadderOrders(botDeployment.botAddress);
       console.log('Orders placed:', orderPlacement.txHash);
 
-      alert(`Strategy deployed successfully!\nBot: ${botDeployment.botAddress}\nOrders: ${orderPlacement.orderCount} placed`);
+      const botMessage = botDeployment.isExisting 
+        ? `Using existing bot: ${botDeployment.botAddress}`
+        : `New bot deployed: ${botDeployment.botAddress}`;
+
+      alert(`Strategy deployed successfully!\n${botMessage}\nOrders: ${orderPlacement.orderCount} placed`);
       
     } catch (error) {
       console.error('Error deploying strategy:', error);

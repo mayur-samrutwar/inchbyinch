@@ -14,7 +14,16 @@ export const config = createConfig({
   connectors: [
     injected(),
     metaMask(),
-    walletConnect({ projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'your-project-id' }),
+    walletConnect({ 
+      projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'your-project-id',
+      showQrModal: true,
+      metadata: {
+        name: 'inchbyinch',
+        description: 'Smart ladder trading automation on 1inch LOP',
+        url: 'https://inchbyinch.xyz',
+        icons: ['https://inchbyinch.xyz/favicon.ico']
+      }
+    }),
   ],
 })
 
@@ -30,6 +39,6 @@ export const TOKENS = {
     symbol: 'USDC',
     name: 'USD Coin',
     decimals: 6,
-    address: '0x036CbD53842c5426634e7929541eC2318f3dCF7c' // Base Sepolia USDC
+    address: '0x036cbd53842c5426634e7929541ec2318f3dcf7e' // Base Sepolia USDC
   }
 }; 

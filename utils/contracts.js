@@ -53,7 +53,7 @@ export const TOKENS = {
   },
   baseSepolia: {
     WETH: '0x4200000000000000000000000000000000000006',
-    USDC: '0x036CbD53842c5426634e7929541eC2318f3dCF7c',
+    USDC: '0x036cbd53842c5426634e7929541ec2318f3dcf7e',
     DAI: '0x0000000000000000000000000000000000000000' // Not available on Base Sepolia
   },
   sepolia: {
@@ -70,10 +70,10 @@ export const TOKENS = {
 
 // Contract ABIs
 export const CONTRACT_ABIS = {
-  factory: require('./abis/inchbyinchFactory.json'),
-  bot: require('./abis/inchbyinchBot.json'),
-  orderManager: require('./abis/OrderManager.json'),
-  oracleAdapter: require('./abis/OracleAdapter.json')
+  factory: require('./abis/inchbyinchFactory.json').abi,
+  bot: require('./abis/inchbyinchBot.json').abi,
+  orderManager: require('./abis/OrderManager.json').abi,
+  oracleAdapter: require('./abis/OracleAdapter.json').abi
 };
 
 // Contract addresses (will be loaded from deployment)

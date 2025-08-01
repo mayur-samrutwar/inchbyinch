@@ -1,6 +1,5 @@
-import { createPublicClient, createWalletClient, http, getAddress } from 'viem';
-import { getNetworkConfig, getContractAddressesForNetwork, CONTRACT_ABIS } from './contracts.js';
-import { estimateGasWithBuffer } from './contracts.js';
+import { createPublicClient, createWalletClient, http, getAddress, parseEther, formatEther, parseUnits } from 'viem';
+import { getNetworkConfig, getContractAddressesForNetwork, CONTRACT_ABIS, createBotContract, createFactoryContract, formatTokenAmount, parseTokenAmount, estimateGasWithBuffer } from './contracts.js';
 
 class ContractService {
   constructor() {
@@ -11,25 +10,23 @@ class ContractService {
     this.currentNetwork = null;
   }
 
-  // Initialize with network
-  async initialize(chainId) {
+  // Initialize with public and wallet clients (called from frontend)
+  async initialize(publicClient, walletClient) {
     try {
-      console.log('Initializing ContractService for chainId:', chainId);
+      console.log('Initializing ContractService with clients');
+      
+      this.publicClient = publicClient;
+      this.walletClient = walletClient;
+      
+      // Get current chain ID
+      const chainId = await this.publicClient.getChainId();
+      console.log('Current chain ID:', chainId);
       
       const networkConfig = getNetworkConfig(chainId);
       const contractAddresses = getContractAddressesForNetwork(chainId);
       
       console.log('Network config:', networkConfig);
       console.log('Contract addresses:', contractAddresses);
-      
-      // Create public client
-      this.publicClient = createPublicClient({
-        chain: networkConfig,
-        transport: http(networkConfig.rpcUrl)
-      });
-      
-      // Create wallet client (will be set when wallet connects)
-      this.walletClient = null;
       
       // Set current network
       this.currentNetwork = networkConfig;
@@ -80,17 +77,47 @@ class ContractService {
     try {
       console.log('Deploying bot for user:', userAddress);
 
-      // Get deployment cost
-      const deploymentCost = parseEther('0.01');
+      // Get contract addresses for the current network
+      const chainId = await this.publicClient.getChainId();
+      const contractAddresses = getContractAddressesForNetwork(chainId);
+      
+      // Create network config with contracts
+      const networkConfigWithContracts = {
+        ...this.currentNetwork,
+        contracts: contractAddresses
+      };
 
-      // Deploy bot using Viem
+      const factory = createFactoryContract(this.walletClient, networkConfigWithContracts);
+
+      // First, check if user already has bots
+      const existingBots = await this.publicClient.readContract({
+        address: contractAddresses.factory,
+        abi: CONTRACT_ABIS.factory,
+        functionName: 'getUserBots',
+        args: [userAddress]
+      });
+
+      console.log('Existing bots for user:', existingBots);
+
+      if (existingBots.length > 0) {
+        // User has existing bots, use the first one
+        const botAddress = existingBots[0];
+        console.log('Using existing bot:', botAddress);
+        
+        return {
+          botAddress,
+          txHash: null, // No new transaction
+          isExisting: true
+        };
+      }
+
+      // Deploy new bot using Viem
       const { request } = await this.publicClient.simulateContract({
-        address: this.factory.address,
-        abi: this.factory.abi,
+        address: contractAddresses.factory,
+        abi: CONTRACT_ABIS.factory,
         functionName: 'deployBot',
         args: [userAddress],
-        value: deploymentCost,
-        account: userAddress
+        value: parseEther('0.001') // MIN_DEPOSIT
       });
 
       const hash = await this.walletClient.writeContract(request);
@@ -100,39 +127,73 @@ class ContractService {
       const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
       console.log('Bot deployed successfully:', receipt);
 
-      // Get bot address from event
-      const event = receipt.logs.find(log => 
-        log.topics[0] === '0x...' // BotDeployed event signature
-      );
+      // Get the deployed bot address from the event
+      const event = receipt.logs.find(log => {
+        try {
+          return log.topics[0] === '0x...'; // BotDeployed event signature
+        } catch {
+          return false;
+        }
+      });
 
-      if (!event) {
-        throw new Error('BotDeployed event not found');
+      let botAddress;
+      if (event) {
+        // Extract bot address from event
+        botAddress = '0x' + event.topics[2].slice(26); // Remove padding
+      } else {
+        // Fallback: get the latest bot for the user
+        const updatedBots = await this.publicClient.readContract({
+          address: contractAddresses.factory,
+          abi: CONTRACT_ABIS.factory,
+          functionName: 'getUserBots',
+          args: [userAddress]
+        });
+        botAddress = updatedBots[updatedBots.length - 1];
       }
-
-      const botAddress = event.address; // Extract from event
-      console.log('Bot deployed at:', botAddress);
-
-      // Store bot instance
-      this.userBots.set(botAddress, createBotContract(botAddress, this.walletClient));
 
       return {
         botAddress,
         txHash: hash,
-        deploymentCost: deploymentCost.toString()
+        isExisting: false
       };
 
     } catch (error) {
       console.error('Error deploying bot:', error);
+      
+      // Check if it's a user limit exceeded error
+      if (error.message.includes('UserLimitExceeded')) {
+        // Get existing bots and suggest using one
+        try {
+          const chainId = await this.publicClient.getChainId();
+          const contractAddresses = getContractAddressesForNetwork(chainId);
+          
+          const existingBots = await this.publicClient.readContract({
+            address: contractAddresses.factory,
+            abi: CONTRACT_ABIS.factory,
+            functionName: 'getUserBots',
+            args: [userAddress]
+          });
+          
+          if (existingBots.length > 0) {
+            throw new Error(`You have reached the maximum limit of 10 bots. You can use one of your existing bots: ${existingBots.join(', ')}`);
+          }
+        } catch (getBotsError) {
+          console.error('Error getting existing bots:', getBotsError);
+        }
+        
+        throw new Error('You have reached the maximum limit of 10 bots. Please use an existing bot or contact support.');
+      }
+      
       throw new Error(`Failed to deploy bot: ${error.message}`);
     }
   }
 
   // Create a strategy on a bot
-  async createStrategy(botAddress, strategyConfig) {
+  async createStrategy(botAddress, strategyConfig, userAddress) {
     try {
       console.log('Creating strategy on bot:', botAddress);
 
-      const bot = this.userBots.get(botAddress) || createBotContract(botAddress, this.signer);
+      const bot = this.userBots.get(botAddress) || createBotContract(botAddress, this.walletClient);
       
       // Parse strategy parameters
       const {
@@ -154,24 +215,43 @@ class ContractService {
 
       // Convert prices to wei
       const startPriceWei = parseTokenAmount(startPrice, 18);
-      const spacingWei = parseTokenAmount(spacing, 18);
+      const spacingPercentage = parseInt(spacing); // Keep as percentage, don't convert to wei
       const orderSizeWei = parseTokenAmount(orderSize, 18);
       const budgetWei = parseTokenAmount(budget, 18);
       const stopLossWei = stopLoss > 0 ? parseTokenAmount(stopLoss, 18) : 0;
       const takeProfitWei = takeProfit > 0 ? parseTokenAmount(takeProfit, 18) : 0;
 
+      console.log('Strategy parameters debug:');
+      console.log('- orderSize (input):', orderSize);
+      console.log('- orderSizeWei (converted):', orderSizeWei.toString());
+      console.log('- MIN_ORDER_SIZE (0.001 ETH):', '1000000000000000');
+      console.log('- MAX_ORDER_SIZE (1000 ETH):', '1000000000000000000000000000000000000000');
+
+      // Validate order size
+      const MIN_ORDER_SIZE_WEI = BigInt('1000000000000000'); // 0.001 ETH
+      const MAX_ORDER_SIZE_WEI = BigInt('1000000000000000000000000000000000000000'); // 1000 ETH
+      
+      if (orderSizeWei < MIN_ORDER_SIZE_WEI) {
+        throw new Error(`Order size too small. Minimum is 0.001 ETH, but you provided ${orderSize} ETH`);
+      }
+      
+      if (orderSizeWei > MAX_ORDER_SIZE_WEI) {
+        throw new Error(`Order size too large. Maximum is 1000 ETH, but you provided ${orderSize} ETH`);
+      }
+
       // Calculate expiry time
       const expiryTimestamp = Math.floor(Date.now() / 1000) + (expiryTime * 3600); // hours to seconds
 
-      // Estimate gas
-      const gasEstimate = await estimateGasWithBuffer(
-        bot,
-        'createStrategy',
-        [
+      // Create strategy using Viem with user as caller
+      const { request } = await this.publicClient.simulateContract({
+        address: botAddress,
+        abi: CONTRACT_ABIS.bot,
+        functionName: 'createStrategy',
+        args: [
           makerAsset,
           takerAsset,
           startPriceWei,
-          spacingWei,
+          spacingPercentage, // Use percentage directly
           orderSizeWei,
           numOrders,
           strategyType,
@@ -183,36 +263,18 @@ class ContractService {
           flipToSell,
           flipPercentage
         ],
-        1.3
-      );
+        account: userAddress // Use the provided user address as caller
+      });
 
-      // Create strategy
-      const tx = await bot.createStrategy(
-        makerAsset,
-        takerAsset,
-        startPriceWei,
-        spacingWei,
-        orderSizeWei,
-        numOrders,
-        strategyType,
-        repostMode,
-        budgetWei,
-        stopLossWei,
-        takeProfitWei,
-        expiryTimestamp,
-        flipToSell,
-        flipPercentage,
-        { gasLimit: gasEstimate }
-      );
-
-      console.log('Strategy creation transaction:', tx.hash);
+      const hash = await this.walletClient.writeContract(request);
+      console.log('Strategy creation transaction:', hash);
 
       // Wait for confirmation
-      const receipt = await tx.wait();
+      const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
       console.log('Strategy created successfully:', receipt);
 
       return {
-        txHash: tx.hash,
+        txHash: hash,
         strategyId: receipt.logs[0]?.topics[1] // Extract strategy ID from event
       };
 
@@ -227,31 +289,30 @@ class ContractService {
     try {
       console.log('Placing ladder orders on bot:', botAddress);
 
-      const bot = this.userBots.get(botAddress) || createBotContract(botAddress, this.signer);
+      const bot = this.userBots.get(botAddress) || createBotContract(botAddress, this.walletClient);
 
-      // Estimate gas
-      const gasEstimate = await estimateGasWithBuffer(
-        bot,
-        'placeLadderOrders',
-        [],
-        1.5
-      );
+      // Place orders using Viem with user as caller
+      const { request } = await this.publicClient.simulateContract({
+        address: botAddress,
+        abi: CONTRACT_ABIS.bot,
+        functionName: 'placeLadderOrders',
+        args: [],
+        account: this.walletClient.account?.address || this.walletClient.address // Use the user's address as caller
+      });
 
-      // Place orders
-      const tx = await bot.placeLadderOrders({ gasLimit: gasEstimate });
-
-      console.log('Order placement transaction:', tx.hash);
+      const hash = await this.walletClient.writeContract(request);
+      console.log('Order placement transaction:', hash);
 
       // Wait for confirmation
-      const receipt = await tx.wait();
+      const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
       console.log('Orders placed successfully:', receipt);
 
       return {
-        txHash: tx.hash,
+        txHash: hash,
         orderCount: receipt.logs.filter(log => {
           try {
-            const parsed = bot.interface.parseLog(log);
-            return parsed.name === 'OrderPlaced';
+            // Check if this is an OrderPlaced event
+            return log.topics[0] === '0x...'; // OrderPlaced event signature
           } catch {
             return false;
           }
@@ -332,7 +393,7 @@ class ContractService {
       // Try to get the strategy data - if it fails, return default
       const strategy = await this.publicClient.readContract({
         address: botAddress,
-        abi: bot.abi,
+        abi: CONTRACT_ABIS.bot,
         functionName: 'strategy'
       });
       
@@ -410,7 +471,7 @@ class ContractService {
       try {
         const activeOrderIndices = await this.publicClient.readContract({
           address: botAddress,
-          abi: bot.abi,
+          abi: CONTRACT_ABIS.bot,
           functionName: 'getActiveOrders'
         });
         
@@ -423,7 +484,7 @@ class ContractService {
               // Get individual order using Viem
               const order = await this.publicClient.readContract({
                 address: botAddress,
-                abi: bot.abi,
+                abi: CONTRACT_ABIS.bot,
                 functionName: 'getOrder',
                 args: [orderIndex]
               });
@@ -464,7 +525,7 @@ class ContractService {
       // Simulate the transaction first
       const { request } = await this.publicClient.simulateContract({
         address: botAddress,
-        abi: bot.abi,
+        abi: CONTRACT_ABIS.bot,
         functionName: 'cancelAllOrders',
         args: []
       });
@@ -510,7 +571,7 @@ class ContractService {
       try {
         const [totalFilled, totalSpent, profit] = await this.publicClient.readContract({
           address: botAddress,
-          abi: bot.abi,
+          abi: CONTRACT_ABIS.bot,
           functionName: 'getStrategyPerformance'
         });
         
@@ -576,9 +637,16 @@ class ContractService {
   // Get current price from oracle
   async getCurrentPrice(tokenAddress) {
     try {
+      // Get oracle adapter address from environment
+      const oracleAddress = process.env.NEXT_PUBLIC_BASE_SEPOLIA_ORACLE_ADAPTER_ADDRESS;
+      
+      if (!oracleAddress) {
+        throw new Error('Oracle adapter address not configured');
+      }
+
       const priceData = await this.publicClient.readContract({
-        address: this.oracleAdapter.address,
-        abi: this.oracleAdapter.abi,
+        address: oracleAddress,
+        abi: CONTRACT_ABIS.oracleAdapter,
         functionName: 'getLatestPrice',
         args: [tokenAddress]
       });
@@ -601,7 +669,7 @@ class ContractService {
       // Simulate the transaction first
       const { request } = await this.publicClient.simulateContract({
         address: botAddress,
-        abi: bot.abi,
+        abi: CONTRACT_ABIS.bot,
         functionName: 'withdrawTokens',
         args: [tokenAddress, amount]
       });
@@ -677,14 +745,71 @@ class ContractService {
     }
   }
 
+  // Transfer tokens to bot
+  async transferTokensToBot(botAddress, tokenAddress, amount, userAddress) {
+    try {
+      console.log('Transferring tokens to bot:', tokenAddress, amount);
+
+      // Create ERC20 contract instance
+      const erc20Abi = [
+        {
+          "constant": false,
+          "inputs": [
+            {"name": "to", "type": "address"},
+            {"name": "amount", "type": "uint256"}
+          ],
+          "name": "transfer",
+          "outputs": [{"name": "", "type": "bool"}],
+          "payable": false,
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "constant": true,
+          "inputs": [{"name": "account", "type": "address"}],
+          "name": "balanceOf",
+          "outputs": [{"name": "", "type": "uint256"}],
+          "payable": false,
+          "stateMutability": "view",
+          "type": "function"
+        }
+      ];
+
+      // Transfer tokens to bot
+      const { request } = await this.publicClient.simulateContract({
+        address: tokenAddress,
+        abi: erc20Abi,
+        functionName: 'transfer',
+        args: [botAddress, amount],
+        account: userAddress
+      });
+
+      const hash = await this.walletClient.writeContract(request);
+      console.log('Token transfer transaction:', hash);
+
+      // Wait for confirmation
+      const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+      console.log('Tokens transferred successfully:', receipt);
+
+      return {
+        txHash: hash,
+        success: true
+      };
+
+    } catch (error) {
+      console.error('Error transferring tokens to bot:', error);
+      throw new Error(`Failed to transfer tokens to bot: ${error.message}`);
+    }
+  }
+
   // Check if network is supported
   isNetworkSupported(chainId) {
-    return chainId === 11155111; // Sepolia only
+    return chainId === 84532; // Base Sepolia
   }
 
   // Get supported networks
   getSupportedNetworks() {
-    return [{ chainId: 11155111, name: 'Sepolia' }];
+    return [{ chainId: 84532, name: 'Base Sepolia' }];
   }
 }
 
