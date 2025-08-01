@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 export default function Navigation() {
   const router = useRouter();
@@ -53,7 +52,7 @@ export default function Navigation() {
           </div>
           
           {/* Wallet Connect */}
-          <ConnectButton />
+          <appkit-button />
         </div>
       </div>
     </nav>
