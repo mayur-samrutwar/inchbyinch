@@ -79,6 +79,19 @@ interface I1inchLOP {
     function getOrderHash(Order calldata order) external view returns (bytes32 orderHash);
 
     /**
+     * @notice Places an order (for testing purposes)
+     * @param order The order to place
+     */
+    function placeOrder(Order calldata order) external;
+
+    /**
+     * @notice Checks if an order exists (for testing purposes)
+     * @param orderHash The order hash to check
+     * @return exists Whether the order exists
+     */
+    function orderExists(bytes32 orderHash) external view returns (bool exists);
+
+    /**
      * @notice Gets the remaining amount for an order
      * @param order The order
      * @return remainingAmount The remaining amount

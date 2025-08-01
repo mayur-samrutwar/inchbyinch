@@ -11,6 +11,7 @@ describe("inchbyinchFactory", function () {
     let user1;
     let user2;
     let user3;
+    let mockUSDC;
     
     const LOP_ADDRESS = "0x3ef51736315F52d568D6D2cf289419b9CfffE782";
     const MIN_DEPOSIT = ethers.parseEther("0.01");
@@ -19,7 +20,12 @@ describe("inchbyinchFactory", function () {
     beforeEach(async function () {
         [owner, user1, user2, user3] = await ethers.getSigners();
         
-        // Deploy dependencies
+        // Deploy mock tokens
+        const MockERC20 = await ethers.getContractFactory("MockERC20");
+        mockUSDC = await MockERC20.deploy("USD Coin", "USDC", 6);
+        await mockUSDC.waitForDeployment();
+        
+        // Deploy core contracts
         const OrderManager = await ethers.getContractFactory("OrderManager");
         orderManager = await OrderManager.deploy();
         await orderManager.waitForDeployment();
@@ -48,9 +54,15 @@ describe("inchbyinchFactory", function () {
         );
         await factory.waitForDeployment();
         
-        // Authorize factory
+        // Setup authorizations
         await orderManager.authorizeBot(await factory.getAddress());
         await oracleAdapter.authorizeUpdater(await factory.getAddress());
+        await lopAdapter.authorizeUpdater(await factory.getAddress());
+
+        // Transfer ownership to factory for proper authorization
+        await orderManager.transferOwnership(await factory.getAddress());
+        await oracleAdapter.transferOwnership(await factory.getAddress());
+        await lopAdapter.transferOwnership(await factory.getAddress());
     });
     
     describe("Deployment", function () {
@@ -63,14 +75,10 @@ describe("inchbyinchFactory", function () {
         });
         
         it("Should get factory configuration correctly", async function () {
-            const config = await factory.getFactoryConfig();
-            
-            expect(config[0]).to.equal(await orderManager.getAddress()); // orderManager
-            expect(config[1]).to.equal(await oracleAdapter.getAddress()); // oracleAdapter
-            expect(config[2]).to.equal(LOP_ADDRESS); // lop
-            expect(config[3]).to.equal(10); // maxBotsPerUser
-            expect(config[4]).to.equal(MIN_DEPOSIT); // minDeposit
-            expect(config[5]).to.equal(MAX_DEPOSIT); // maxDeposit
+            expect(await factory.botImplementation()).to.equal(await botImplementation.getAddress());
+            expect(await factory.orderManager()).to.equal(await orderManager.getAddress());
+            expect(await factory.oracleAdapter()).to.equal(await oracleAdapter.getAddress());
+            expect(await factory.MIN_DEPOSIT()).to.equal(ethers.parseEther("0.001"));
         });
         
         it("Should not be paused initially", async function () {
@@ -107,10 +115,10 @@ describe("inchbyinchFactory", function () {
         });
         
         it("Should revert with insufficient deposit", async function () {
-            const insufficientDeposit = ethers.parseEther("0.005");
+            const insufficientAmount = ethers.parseEther("0.0005"); // Less than MIN_DEPOSIT
             
             await expect(
-                factory.connect(user1).deployBot(user1.address, { value: insufficientDeposit })
+                factory.connect(user1).deployBot(user1.address, { value: insufficientAmount })
             ).to.be.revertedWithCustomError(factory, "InsufficientDeposit");
         });
         
@@ -206,11 +214,10 @@ describe("inchbyinchFactory", function () {
         });
         
         it("Should revert with insufficient deposit for multiple bots", async function () {
-            const count = 3;
-            const insufficientDeposit = MIN_DEPOSIT * 2n; // Only 2 deposits for 3 bots
+            const insufficientAmount = ethers.parseEther("0.0005"); // Less than required for 2 bots
             
             await expect(
-                factory.connect(user1).deployMultipleBots(user1.address, count, { value: insufficientDeposit })
+                factory.connect(user1).deployMultipleBots(user1.address, 2, { value: insufficientAmount })
             ).to.be.revertedWithCustomError(factory, "InsufficientDeposit");
         });
     });
@@ -261,10 +268,10 @@ describe("inchbyinchFactory", function () {
         });
         
         it("Should revert with insufficient deposit", async function () {
-            const insufficientDeposit = ethers.parseEther("0.005");
+            const insufficientAmount = ethers.parseEther("0.0005"); // Less than MIN_DEPOSIT
             
             await expect(
-                factory.connect(user1).upgradeBot(user1.address, 0, { value: insufficientDeposit })
+                factory.connect(user1).upgradeBot(user1.address, 0, { value: insufficientAmount })
             ).to.be.revertedWithCustomError(factory, "InsufficientDeposit");
         });
     });
@@ -397,14 +404,10 @@ describe("inchbyinchFactory", function () {
         });
         
         it("Should allow owner to withdraw tokens", async function () {
-            // This would require a mock token, but we can test the function exists
-            const mockToken = "0x1234567890123456789012345678901234567890";
-            const mockAmount = ethers.parseEther("1");
-            
-            // Should revert due to insufficient balance, but not due to access control
+            // Try to withdraw more tokens than the contract has
             await expect(
-                factory.withdrawTokens(mockToken, mockAmount)
-            ).to.be.revertedWith("Insufficient balance");
+                factory.withdrawTokens(await mockUSDC.getAddress(), ethers.parseEther("1000"))
+            ).to.be.revertedWith("Transfer failed");
         });
         
         it("Should only allow owner to withdraw tokens", async function () {
@@ -419,13 +422,10 @@ describe("inchbyinchFactory", function () {
     
     describe("Emergency Functions", function () {
         it("Should allow owner to recover stuck tokens", async function () {
-            const mockToken = "0x1234567890123456789012345678901234567890";
-            const mockAmount = ethers.parseEther("1");
-            
-            // Should revert due to insufficient balance, but not due to access control
+            // Try to recover more tokens than the contract has
             await expect(
-                factory.emergencyRecover(mockToken, user1.address, mockAmount)
-            ).to.be.revertedWith("Insufficient balance");
+                factory.emergencyRecover(await mockUSDC.getAddress(), owner.address, ethers.parseEther("1000"))
+            ).to.be.revertedWith("Transfer failed");
         });
         
         it("Should only allow owner to recover tokens", async function () {

@@ -159,4 +159,18 @@ contract MockLOP is I1inchLOP {
         bytes32 orderHash = this.getOrderRFQHash(order);
         return orderExists[orderHash];
     }
+
+    /**
+     * @notice Simulates filling an order for testing purposes
+     * @param orderHash The hash of the order to fill
+     */
+    function simulateFill(bytes32 orderHash) external {
+        require(orderExists[orderHash], "Order does not exist");
+        
+        // Mark order as filled
+        orderExists[orderHash] = false;
+        orderRemaining[orderHash] = 0;
+        
+        emit MockOrderFilled(orderHash, 0, 0);
+    }
 } 

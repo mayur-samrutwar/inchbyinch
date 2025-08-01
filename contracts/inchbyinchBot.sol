@@ -68,6 +68,22 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
         uint256 createdAt;
     }
     
+    struct StrategyConfig {
+        address tokenIn;
+        address tokenOut;
+        uint256 startPrice;
+        uint256 spacing;
+        uint256 orderSize;
+        uint256 numOrders;
+        uint256 repostMode;
+        uint256 budget;
+        uint256 stopLoss;
+        uint256 takeProfit;
+        uint256 expiryTime;
+        bool flipToSell;
+        uint256 flipPercentage;
+    }
+    
     // Storage
     Strategy public strategy;
     mapping(uint256 => Order) public orders;
@@ -301,6 +317,8 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
             strategyType
         );
     }
+
+
     
     /**
      * @notice Places ladder orders
@@ -375,6 +393,13 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
      * @notice Cancels all active orders
      */
     function cancelAllOrders() external onlyOwner strategyActive {
+        _cancelAllOrdersInternal();
+    }
+
+    /**
+     * @notice Internal function to cancel all active orders
+     */
+    function _cancelAllOrdersInternal() internal {
         for (uint256 i = 1; i <= strategy.currentOrderIndex; i++) {
             Order storage order = orders[i];
             if (order.isActive) {
@@ -397,6 +422,34 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
         if (!order.isActive) revert OrderAlreadyCanceled();
         
         _cancelOrder(orderIndex);
+    }
+
+    /**
+     * @notice Checks for timeouts and cancels expired orders
+     */
+    function checkTimeouts() external onlyOwner {
+        if (!strategy.isActive) return;
+        
+        if (block.timestamp > strategy.expiryTime) {
+            _cancelAllOrdersInternal();
+        }
+    }
+
+    /**
+     * @notice Checks for stop loss conditions and cancels orders if triggered
+     */
+    function checkStopLoss() external onlyOwner {
+        if (!strategy.isActive) return;
+        
+        uint256 currentPrice = _getCurrentPrice();
+        
+        if (strategy.stopLoss > 0 && currentPrice <= strategy.stopLoss) {
+            _cancelAllOrdersInternal();
+        }
+        
+        if (strategy.takeProfit > 0 && currentPrice >= strategy.takeProfit) {
+            _cancelAllOrdersInternal();
+        }
     }
     
     /**
@@ -433,6 +486,26 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
         for (uint256 i = 1; i <= strategy.currentOrderIndex; i++) {
             if (orders[i].isActive) {
                 activeOrders[index] = i;
+                index++;
+            }
+        }
+    }
+
+    /**
+     * @notice Gets all active order hashes
+     * @return activeOrderHashes Array of active order hashes
+     */
+    function getActiveOrderHashes() external view returns (bytes32[] memory activeOrderHashes) {
+        uint256 count = 0;
+        for (uint256 i = 1; i <= strategy.currentOrderIndex; i++) {
+            if (orders[i].isActive) count++;
+        }
+        
+        activeOrderHashes = new bytes32[](count);
+        uint256 index = 0;
+        for (uint256 i = 1; i <= strategy.currentOrderIndex; i++) {
+            if (orders[i].isActive) {
+                activeOrderHashes[index] = orders[i].orderHash;
                 index++;
             }
         }
@@ -533,14 +606,6 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
         uint256 makingAmount = size;
         uint256 takingAmount = (size * price) / 1e18;
         
-        // Create interaction data for callback
-        bytes memory interactions = abi.encodeWithSignature(
-            "handleOrderFill(bytes32,uint256,uint256)",
-            bytes32(0), // Will be set by LOP adapter
-            uint256(0),
-            uint256(0)
-        );
-        
         // Create order through LOP adapter
         bytes32 orderHash = lopAdapter.createOrder(
             isBuy ? strategy.takerAsset : strategy.makerAsset, // makerAsset
@@ -549,7 +614,7 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
             takingAmount,
             address(this), // receiver
             address(0), // allowedSender
-            interactions
+            "" // interactions
         );
         
         // Store order
@@ -613,22 +678,8 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
     function _cancelOrder(uint256 orderIndex) private {
         Order storage order = orders[orderIndex];
         
-        // Create order structure for cancellation
-        I1inchLOP.Order memory lopOrder = I1inchLOP.Order({
-            salt: uint256(keccak256(abi.encodePacked(block.timestamp, orderIndex))),
-            makerAsset: strategy.makerAsset,
-            takerAsset: strategy.takerAsset,
-            maker: address(this),
-            receiver: address(this),
-            allowedSender: address(0),
-            makingAmount: strategy.orderSize,
-            takingAmount: (strategy.orderSize * order.price) / 1e18,
-            offsets: 0,
-            interactions: ""
-        });
-        
-        // Cancel through LOP adapter
-        lopAdapter.cancelOrder(lopOrder);
+        // Cancel through LOP adapter using the existing order hash
+        lopAdapter.cancelOrderByHash(order.orderHash);
         
         // Update order
         order.isActive = false;

@@ -121,6 +121,9 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
         // Authorize the bot in OrderManager (factory is authorized to do this)
         IOrderManager(orderManager).authorizeBot(bot);
         
+        // Authorize the bot in LOPAdapter (factory is authorized to do this)
+        LOPAdapter(payable(lopAdapter)).authorizeUpdater(bot);
+        
         // Note: Bot ownership remains with factory for security
         // User can interact through factory functions
         
@@ -161,6 +164,9 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
             // Authorize the bot in OrderManager (factory is authorized to do this)
             IOrderManager(orderManager).authorizeBot(bot);
             
+            // Authorize the bot in LOPAdapter (factory is authorized to do this)
+            LOPAdapter(payable(lopAdapter)).authorizeUpdater(bot);
+            
             // Note: Bot ownership remains with factory for security
             
             // Store bot
@@ -199,6 +205,9 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
         
         // Authorize the bot in OrderManager (factory is authorized to do this)
         IOrderManager(orderManager).authorizeBot(newBot);
+        
+        // Authorize the bot in LOPAdapter (factory is authorized to do this)
+        LOPAdapter(payable(lopAdapter)).authorizeUpdater(newBot);
         
         // Note: Bot ownership remains with factory for security
         

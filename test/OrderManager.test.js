@@ -8,10 +8,17 @@ describe("OrderManager", function () {
     let bot2;
     let user1;
     let user2;
+    let mockUSDC;
     
     beforeEach(async function () {
-        [owner, bot1, bot2, user1, user2] = await ethers.getSigners();
+        [owner, user1, user2, bot1, bot2] = await ethers.getSigners();
         
+        // Deploy mock tokens
+        const MockERC20 = await ethers.getContractFactory("MockERC20");
+        mockUSDC = await MockERC20.deploy("USD Coin", "USDC", 6);
+        await mockUSDC.waitForDeployment();
+        
+        // Deploy OrderManager
         const OrderManager = await ethers.getContractFactory("OrderManager");
         orderManager = await OrderManager.deploy();
         await orderManager.waitForDeployment();
@@ -551,15 +558,10 @@ describe("OrderManager", function () {
     
     describe("Emergency Functions", function () {
         it("Should allow owner to recover stuck tokens", async function () {
-            // This test would require deploying a mock token
-            // For now, we just test that the function exists and doesn't revert
-            const mockToken = "0x1234567890123456789012345678901234567890";
-            const mockAmount = ethers.parseEther("1");
-            
-            // This should revert due to insufficient balance, but not due to access control
+            // Try to recover more tokens than the contract has
             await expect(
-                orderManager.emergencyRecover(mockToken, user1.address, mockAmount)
-            ).to.be.revertedWith("Insufficient balance");
+                orderManager.emergencyRecover(await mockUSDC.getAddress(), owner.address, ethers.parseEther("1000"))
+            ).to.be.revertedWith("Transfer failed");
         });
     });
 }); 

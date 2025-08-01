@@ -2,18 +2,14 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("OracleAdapter", function () {
-    let oracleAdapter;
-    let owner;
-    let updater1;
-    let updater2;
-    let user1;
-    let user2;
+    let oracleAdapter, owner, updater1, updater2, user1;
     
-    const ETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
-    const USDC_ADDRESS = "0xA0b86a33E6441b8c4C8C8C8C8C8C8C8C8C8C8C8C8";
+    // Use checksummed addresses to avoid ENS resolution issues
+    const ETH_ADDRESS = ethers.getAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
+    const USDC_ADDRESS = ethers.getAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48");
     
     beforeEach(async function () {
-        [owner, updater1, updater2, user1, user2] = await ethers.getSigners();
+        [owner, updater1, updater2, user1] = await ethers.getSigners();
         
         const OracleAdapter = await ethers.getContractFactory("OracleAdapter");
         oracleAdapter = await OracleAdapter.deploy();

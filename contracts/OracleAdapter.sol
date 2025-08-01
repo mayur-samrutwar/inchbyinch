@@ -276,6 +276,9 @@ contract OracleAdapter is IOracleAdapter, Ownable, ReentrancyGuard, Pausable {
         PriceData memory priceData = _latestPrices[asset];
         if (priceData.price == 0) return true;
         
+        // Check for overflow and handle future timestamps
+        if (block.timestamp < priceData.timestamp) return false;
+        
         return (block.timestamp - priceData.timestamp) > maxAge;
     }
     
@@ -299,7 +302,7 @@ contract OracleAdapter is IOracleAdapter, Ownable, ReentrancyGuard, Pausable {
         uint256 oldPrice = currentPrice;
         
         // Find the oldest price within timeframe
-        for (uint256 i = prices.length - 1; i >= 0; i--) {
+        for (uint256 i = 0; i < prices.length; i++) {
             if (timestamps[i] >= cutoffTime) {
                 oldPrice = prices[i];
                 break;
