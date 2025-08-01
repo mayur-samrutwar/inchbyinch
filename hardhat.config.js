@@ -39,7 +39,7 @@ module.exports = {
       url: process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 84532,
-      gasPrice: 5000000000, // 5 gwei (increased for better transaction acceptance)
+      gasPrice: 10000000000, // 10 gwei (increased for better transaction acceptance)
     },
     sepolia: {
       url: process.env.SEPOLIA_RPC_URL || "https://sepolia.infura.io/v3/YOUR_PROJECT_ID",

@@ -83,38 +83,19 @@ export default function Home() {
         makerAsset: getAddress('0x4200000000000000000000000000000000000006'), // WETH
         takerAsset: getAddress('0x036cbd53842c5426634e7929541ec2318f3dcf7e'), // Real Base Sepolia USDC
         
-        // Strategy parameters
+        // Strategy parameters - use the pre-processed values from StrategyForm
         startPrice: strategyConfig.startPrice,
         spacing: strategyConfig.spacing,
         orderSize: strategyConfig.orderSize,
-        numOrders: parseInt(strategyConfig.numOrders),
-        strategyType: strategyConfig.strategyType === 'buy' ? 0 : strategyConfig.strategyType === 'sell' ? 1 : 2, // 0=buy, 1=sell, 2=both
-        repostMode: strategyConfig.postFillBehavior === 'next' ? 0 : strategyConfig.postFillBehavior === 'same' ? 1 : 2, // 0=next, 1=same, 2=stop
-        budget: strategyConfig.strategyType === 'buy' ? 
-          (() => {
-            // Calculate actual budget needed for BUY strategy
-            const orderSize = parseFloat(strategyConfig.orderSize);
-            const numOrders = parseInt(strategyConfig.numOrders);
-            const startPrice = parseFloat(strategyConfig.startPrice);
-            const spacing = parseFloat(strategyConfig.spacing);
-            
-            let totalCost = 0;
-            for (let i = 0; i < numOrders; i++) {
-              const orderPrice = startPrice - (i * spacing);
-              const orderCost = orderSize * orderPrice;
-              totalCost += orderCost;
-            }
-            // Return as string for contract service to convert to wei
-            return totalCost.toFixed(2);
-          })() : 
-          strategyConfig.budget,
-        stopLoss: strategyConfig.strategyType === 'buy' ? 
-          (parseFloat(strategyConfig.startPrice) * 0.8).toFixed(2) : // 20% below start price for buy (price in USD)
-          strategyConfig.floorPrice || '0',
-        takeProfit: '0', // Not used for now
-        expiryTime: parseInt(strategyConfig.inactivityHours || '6'),
-        flipToSell: strategyConfig.flipToSell || false,
-        flipPercentage: parseInt(strategyConfig.flipPercentage || '0')
+        numOrders: strategyConfig.numOrders,
+        strategyType: strategyConfig.strategyType, // Already converted to contract enum
+        repostMode: strategyConfig.repostMode, // Already converted to contract enum
+        budget: strategyConfig.budget, // Already calculated for buy strategies
+        stopLoss: strategyConfig.stopLoss,
+        takeProfit: strategyConfig.takeProfit,
+        expiryTime: strategyConfig.expiryTime, // Already converted to hours
+        flipToSell: strategyConfig.flipToSell,
+        flipPercentage: strategyConfig.flipPercentage
       };
 
       console.log('Contract parameters:', contractParams);
@@ -269,8 +250,22 @@ export default function Home() {
         errorMessage = 'Invalid price value. Please check your start price and try again.';
       } else if (error.message.includes('InvalidStopLoss')) {
         errorMessage = 'Invalid stop loss value. Stop loss must be below the start price for buy strategies.';
+      } else if (error.message.includes('InvalidTakeProfit')) {
+        errorMessage = 'Invalid take profit value. Take profit must be above the start price for sell strategies.';
       } else if (error.message.includes('StrategyAlreadyActive')) {
         errorMessage = 'Strategy is already active. Please cancel the current strategy first.';
+      } else if (error.message.includes('StrategyNotActive')) {
+        errorMessage = 'No active strategy found. Please create a strategy first.';
+      } else if (error.message.includes('OrderNotFound')) {
+        errorMessage = 'Order not found. The order may have been already filled or cancelled.';
+      } else if (error.message.includes('StopLossTriggered')) {
+        errorMessage = 'Stop loss triggered. Strategy has been cancelled.';
+      } else if (error.message.includes('TakeProfitTriggered')) {
+        errorMessage = 'Take profit triggered. Strategy has been cancelled.';
+      } else if (error.message.includes('StrategyExpired')) {
+        errorMessage = 'Strategy has expired. Please create a new strategy.';
+      } else if (error.message.includes('ExceedsBudget')) {
+        errorMessage = 'Strategy exceeds budget limits. Please reduce order size or number of orders.';
       } else if (error.message.includes('0x56a02da8')) {
         errorMessage = 'Contract error. Please try again or contact support.';
       }

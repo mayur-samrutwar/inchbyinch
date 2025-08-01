@@ -639,6 +639,76 @@ class ContractService {
     }
   }
 
+  // Get individual order details
+  async getOrder(botAddress, orderIndex) {
+    try {
+      console.log(`Getting order ${orderIndex} for bot:`, botAddress);
+      
+      const order = await this.publicClient.readContract({
+        address: botAddress,
+        abi: CONTRACT_ABIS.bot,
+        functionName: 'getOrder',
+        args: [orderIndex]
+      });
+      
+      return {
+        index: orderIndex.toString(),
+        hash: order.orderHash,
+        price: formatTokenAmount(order.price, 18),
+        isActive: order.isActive,
+        createdAt: new Date(order.createdAt * 1000).toISOString()
+      };
+    } catch (error) {
+      console.error('Error getting order:', error);
+      throw new Error(`Failed to get order: ${error.message}`);
+    }
+  }
+
+  // Cancel individual order
+  async cancelOrder(botAddress, orderIndex) {
+    try {
+      console.log(`Cancelling order ${orderIndex} on bot:`, botAddress);
+
+      const { request } = await this.publicClient.simulateContract({
+        address: botAddress,
+        abi: CONTRACT_ABIS.bot,
+        functionName: 'cancelOrder',
+        args: [orderIndex]
+      });
+
+      const hash = await this.walletClient.writeContract(request);
+      console.log('Order cancellation transaction:', hash);
+
+      const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+      console.log('Order cancelled successfully:', receipt);
+
+      return {
+        txHash: hash,
+        orderIndex: orderIndex
+      };
+    } catch (error) {
+      console.error('Error cancelling order:', error);
+      throw new Error(`Failed to cancel order: ${error.message}`);
+    }
+  }
+
+  // Get user bot count
+  async getUserBotCount(userAddress) {
+    try {
+      const count = await this.publicClient.readContract({
+        address: this.factory.address,
+        abi: this.factory.abi,
+        functionName: 'getUserBotCount',
+        args: [userAddress]
+      });
+      
+      return count.toString();
+    } catch (error) {
+      console.error('Error getting user bot count:', error);
+      return '0';
+    }
+  }
+
   // Cancel all orders
   async cancelAllOrders(botAddress) {
     try {

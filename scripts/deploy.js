@@ -29,6 +29,10 @@ async function main() {
         const orderManagerAddress = await orderManager.getAddress();
         console.log("OrderManager deployed to:", orderManagerAddress);
         
+        // Wait a bit between deployments
+        console.log("Waiting 5 seconds before next deployment...");
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
         // Deploy OracleAdapter
         console.log("\n2. Deploying OracleAdapter...");
         const OracleAdapter = await ethers.getContractFactory("OracleAdapter");
@@ -36,6 +40,10 @@ async function main() {
         await oracleAdapter.waitForDeployment();
         const oracleAdapterAddress = await oracleAdapter.getAddress();
         console.log("OracleAdapter deployed to:", oracleAdapterAddress);
+        
+        // Wait a bit between deployments
+        console.log("Waiting 5 seconds before next deployment...");
+        await new Promise(resolve => setTimeout(resolve, 5000));
         
         // Deploy LOPAdapter
         console.log("\n3. Deploying LOPAdapter...");
@@ -45,6 +53,10 @@ async function main() {
         const lopAdapterAddress = await lopAdapter.getAddress();
         console.log("LOPAdapter deployed to:", lopAdapterAddress);
         
+        // Wait a bit between deployments
+        console.log("Waiting 5 seconds before next deployment...");
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
         // Deploy Bot Implementation
         console.log("\n4. Deploying Bot Implementation...");
         const InchByInchBot = await ethers.getContractFactory("inchbyinchBot");
@@ -52,6 +64,10 @@ async function main() {
         await botImplementation.waitForDeployment();
         const botImplementationAddress = await botImplementation.getAddress();
         console.log("Bot Implementation deployed to:", botImplementationAddress);
+        
+        // Wait a bit between deployments
+        console.log("Waiting 5 seconds before next deployment...");
+        await new Promise(resolve => setTimeout(resolve, 5000));
         
         // Deploy Factory
         console.log("\n5. Deploying Factory...");

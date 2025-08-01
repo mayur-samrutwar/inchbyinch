@@ -3,6 +3,7 @@ import Head from 'next/head';
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi';
 import Navigation from '../components/Navigation';
 import PriceDisplay from '../components/PriceDisplay';
+import StrategyPerformance from '../components/StrategyPerformance';
 import { usePriceFeed } from '../hooks/usePriceFeed';
 import { formatEther, parseEther, parseUnits } from 'viem';
 import { baseSepolia } from 'wagmi/chains';
@@ -25,6 +26,7 @@ export default function Dashboard() {
     totalVolume: 0
   });
   const [botBalances, setBotBalances] = useState({});
+  const [strategyPerformance, setStrategyPerformance] = useState({});
   const [withdrawing, setWithdrawing] = useState(false);
 
   // Price feed for ETH
@@ -116,6 +118,23 @@ export default function Dashboard() {
             try {
               const performance = await contractService.getStrategyPerformance(bot.address);
               totalProfit += parseFloat(performance.profit);
+              
+              // Store performance data for display
+              setStrategyPerformance(prev => ({
+                ...prev,
+                [bot.address]: {
+                  ...performance,
+                  strategy: botStrategy
+                }
+              }));
+              
+              // Update strategy info with performance data
+              console.log(`Strategy performance for ${bot.address}:`, {
+                totalFilled: performance.totalFilled,
+                totalSpent: performance.totalSpent,
+                profit: performance.profit,
+                profitPercentage: performance.profitPercentage
+              });
             } catch (error) {
               console.error('Error getting performance:', error);
             }
@@ -347,23 +366,42 @@ export default function Dashboard() {
                           </span>
                         </td>
                         <td className="py-4">
-                          <button 
-                            className="btn btn-secondary text-sm"
-                            onClick={async () => {
-                              try {
-                                const contractService = (await import('../utils/contractService')).default;
-                                await contractService.initialize(publicClient, walletClient);
-                                await contractService.cancelAllOrders(order.botAddress);
-                                alert('Orders cancelled successfully!');
-                                loadActiveOrders(); // Refresh orders
-                              } catch (error) {
-                                console.error('Error cancelling orders:', error);
-                                alert('Error cancelling orders: ' + error.message);
-                              }
-                            }}
-                          >
-                            Cancel
-                          </button>
+                          <div className="flex space-x-2">
+                            <button 
+                              className="btn btn-secondary text-sm"
+                              onClick={async () => {
+                                try {
+                                  const contractService = (await import('../utils/contractService')).default;
+                                  await contractService.initialize(publicClient, walletClient);
+                                  await contractService.cancelOrder(order.botAddress, order.id);
+                                  alert('Order cancelled successfully!');
+                                  loadActiveOrders(); // Refresh orders
+                                } catch (error) {
+                                  console.error('Error cancelling order:', error);
+                                  alert('Error cancelling order: ' + error.message);
+                                }
+                              }}
+                            >
+                              Cancel Order
+                            </button>
+                            <button 
+                              className="btn btn-danger text-sm"
+                              onClick={async () => {
+                                try {
+                                  const contractService = (await import('../utils/contractService')).default;
+                                  await contractService.initialize(publicClient, walletClient);
+                                  await contractService.cancelAllOrders(order.botAddress);
+                                  alert('All orders cancelled successfully!');
+                                  loadActiveOrders(); // Refresh orders
+                                } catch (error) {
+                                  console.error('Error cancelling all orders:', error);
+                                  alert('Error cancelling all orders: ' + error.message);
+                                }
+                              }}
+                            >
+                              Cancel All
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -375,43 +413,24 @@ export default function Dashboard() {
         </div>
 
         {/* Strategy Performance */}
-        <div className="mt-8 card p-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Strategy Performance</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Buy Ladder Strategy</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600 text-sm">Total Orders:</span>
-                  <span className="text-gray-900 font-medium text-sm">{dashboardStats.totalOrders}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 text-sm">Filled Orders:</span>
-                  <span className="text-gray-900 font-medium text-sm">{dashboardStats.filledOrders}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 text-sm">Average Fill Price:</span>
-                  <span className="text-gray-900 font-medium text-sm">
-                    {dashboardStats.averageFillPrice > 0 ? `$${dashboardStats.averageFillPrice.toFixed(2)}` : '$0.00'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 text-sm">Total Volume:</span>
-                  <span className="text-gray-900 font-medium text-sm">
-                    {dashboardStats.totalVolume > 0 ? `${dashboardStats.totalVolume.toFixed(2)} ETH` : '0 ETH'}
-                  </span>
-                </div>
+        <div className="mt-8">
+          {Object.keys(strategyPerformance).length > 0 ? (
+            Object.entries(strategyPerformance).map(([botAddress, data]) => (
+              <div key={botAddress} className="mb-6">
+                <StrategyPerformance 
+                  performance={data} 
+                  strategy={data.strategy}
+                />
+              </div>
+            ))
+          ) : (
+            <div className="card p-8">
+              <h2 className="text-xl font-semibold text-gray-900 mb-6">Strategy Performance</h2>
+              <div className="text-center text-gray-500">
+                No active strategies found. Deploy a strategy to see performance metrics.
               </div>
             </div>
-            
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Price Chart</h3>
-              <div className="bg-gray-50 rounded-lg p-4 h-48 flex items-center justify-center border border-gray-200">
-                <p className="text-gray-500 text-sm">Chart visualization coming soon...</p>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Bot Balances & Withdrawal */}

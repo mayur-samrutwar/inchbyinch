@@ -2,6 +2,28 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSinglePrice } from '../hooks/usePriceFeed';
 import LoadingSpinner from './LoadingSpinner';
 
+// Contract constants - match the contract values
+const STRATEGY_TYPES = {
+  BUY_LADDER: 0,
+  SELL_LADDER: 1,
+  BUY_SELL: 2
+};
+
+const REPOST_MODES = {
+  NEXT_PRICE: 0,
+  SAME_PRICE: 1,
+  SKIP: 2
+};
+
+const CONTRACT_LIMITS = {
+  MAX_ORDERS: 50,
+  MAX_ORDER_SIZE: 1000, // 1000 ETH
+  MIN_ORDER_SIZE: 0.001, // 0.001 ETH
+  MAX_SPACING: 1000, // 1000%
+  MIN_SPACING: 1, // 1%
+  MAX_BOTS_PER_USER: 10
+};
+
 const STEPS = [
   { id: 1, title: 'Basic Setup', description: 'Token pair and strategy type' },
   { id: 2, title: 'Order Configuration', description: 'Price range and order details' },
@@ -28,6 +50,7 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
     cooldownMinutes: '5',
     floorPrice: '2500',
     stopLoss: '0',
+    takeProfit: '0',
     fillPercentage: '75',
     flipToSell: false,
     flipPercentage: '10',
@@ -88,6 +111,61 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
   const endPrice = startPrice - (numOrders - 1) * spacing;
   const averagePrice = (startPrice + endPrice) / 2;
 
+  // Validate form data according to contract limits
+  const validateFormData = () => {
+    const errors = [];
+
+    // Validate order size
+    if (orderSize < CONTRACT_LIMITS.MIN_ORDER_SIZE) {
+      errors.push(`Order size too small! Minimum is ${CONTRACT_LIMITS.MIN_ORDER_SIZE} ETH.`);
+    }
+    
+    if (orderSize > CONTRACT_LIMITS.MAX_ORDER_SIZE) {
+      errors.push(`Order size too large! Maximum is ${CONTRACT_LIMITS.MAX_ORDER_SIZE} ETH.`);
+    }
+    
+    // Validate spacing
+    if (spacing < CONTRACT_LIMITS.MIN_SPACING || spacing > CONTRACT_LIMITS.MAX_SPACING) {
+      errors.push(`Invalid spacing! Must be between ${CONTRACT_LIMITS.MIN_SPACING}% and ${CONTRACT_LIMITS.MAX_SPACING}%.`);
+    }
+    
+    // Validate number of orders
+    if (numOrders < 1 || numOrders > CONTRACT_LIMITS.MAX_ORDERS) {
+      errors.push(`Invalid number of orders! Must be between 1 and ${CONTRACT_LIMITS.MAX_ORDERS}.`);
+    }
+    
+    // Validate budget for BUY strategy
+    if (formData.strategyType === 'buy' && parseFloat(formData.budget) < totalSpend) {
+      errors.push(`Budget too low! You need $${totalSpend.toFixed(2)} but only have $${formData.budget}. Please increase your budget or reduce the number of orders.`);
+    }
+    
+    // Validate flip percentage
+    if (formData.flipToSell && (parseInt(formData.flipPercentage) < 1 || parseInt(formData.flipPercentage) > 50)) {
+      errors.push('Flip percentage must be between 1% and 50%.');
+    }
+    
+    // Validate stop loss and take profit
+    if (parseFloat(formData.stopLoss) > 0) {
+      if (formData.strategyType === 'buy' && parseFloat(formData.stopLoss) >= startPrice) {
+        errors.push('Stop loss must be below the start price for buy strategies.');
+      }
+      if (formData.strategyType === 'sell' && parseFloat(formData.stopLoss) <= startPrice) {
+        errors.push('Stop loss must be above the start price for sell strategies.');
+      }
+    }
+    
+    if (parseFloat(formData.takeProfit) > 0) {
+      if (formData.strategyType === 'buy' && parseFloat(formData.takeProfit) <= startPrice) {
+        errors.push('Take profit must be above the start price for buy strategies.');
+      }
+      if (formData.strategyType === 'sell' && parseFloat(formData.takeProfit) >= startPrice) {
+        errors.push('Take profit must be below the start price for sell strategies.');
+      }
+    }
+
+    return errors;
+  };
+
   const handleDeploy = async () => {
     if (!isConnected) {
       alert('Please connect your wallet first!');
@@ -95,36 +173,48 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
     }
 
     // Validate parameters before deployment
-    if (parseFloat(formData.orderSize) < 0.001) {
-      alert('Order size too small! Minimum is 0.001 ETH.');
-      return;
-    }
-    
-    if (parseFloat(formData.orderSize) > 1000) {
-      alert('Order size too large! Maximum is 1000 ETH.');
-      return;
-    }
-    
-    if (parseFloat(formData.spacing) < 1 || parseFloat(formData.spacing) > 1000) {
-      alert('Invalid spacing! Must be between 1% and 1000%.');
-      return;
-    }
-    
-    if (parseInt(formData.numOrders) < 1 || parseInt(formData.numOrders) > 50) {
-      alert('Invalid number of orders! Must be between 1 and 50.');
-      return;
-    }
-    
-    // For BUY strategy, budget should cover the calculated total spend
-    // For SELL strategy, we need to check if user has enough ETH
-    if (formData.strategyType === 'buy' && parseFloat(formData.budget) < totalSpend) {
-      alert(`Budget too low! You need ${totalSpend.toFixed(2)} USDC but only have ${formData.budget} USDC. Please increase your budget or reduce the number of orders.`);
+    const validationErrors = validateFormData();
+    if (validationErrors.length > 0) {
+      alert('Validation errors:\n' + validationErrors.join('\n'));
       return;
     }
 
     setIsDeploying(true);
     try {
-      await onDeploy(formData);
+      // Convert form data to contract parameters
+      const contractParams = {
+        // Strategy type mapping
+        strategyType: formData.strategyType === 'buy' ? STRATEGY_TYPES.BUY_LADDER : 
+                     formData.strategyType === 'sell' ? STRATEGY_TYPES.SELL_LADDER : 
+                     STRATEGY_TYPES.BUY_SELL,
+        
+        // Repost mode mapping
+        repostMode: formData.postFillBehavior === 'next' ? REPOST_MODES.NEXT_PRICE :
+                   formData.postFillBehavior === 'same' ? REPOST_MODES.SAME_PRICE :
+                   REPOST_MODES.SKIP,
+        
+        // Price parameters (will be converted to wei in contract service)
+        startPrice: formData.startPrice,
+        spacing: formData.spacing, // Keep as percentage
+        orderSize: formData.orderSize,
+        numOrders: parseInt(formData.numOrders),
+        
+        // Budget (will be converted to appropriate decimals in contract service)
+        budget: formData.strategyType === 'buy' ? totalSpend.toFixed(2) : formData.budget,
+        
+        // Stop conditions
+        stopLoss: parseFloat(formData.stopLoss) > 0 ? formData.stopLoss : '0',
+        takeProfit: parseFloat(formData.takeProfit) > 0 ? formData.takeProfit : '0',
+        
+        // Expiry time (convert hours to Unix timestamp)
+        expiryTime: parseInt(formData.inactivityHours || '6'),
+        
+        // Flip settings
+        flipToSell: formData.flipToSell || false,
+        flipPercentage: parseInt(formData.flipPercentage || '0')
+      };
+
+      await onDeploy(contractParams);
       alert('Strategy deployed successfully!');
     } catch (error) {
       console.error('Error deploying strategy:', error);
@@ -334,6 +424,33 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
                 placeholder="5"
                 min="1"
                 max="60"
+              />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Stop Loss ($)
+              </label>
+              <input
+                type="number"
+                value={formData.stopLoss}
+                onChange={(e) => updateFormData('stopLoss', e.target.value)}
+                className="input"
+                placeholder="0 (optional)"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Take Profit ($)
+              </label>
+              <input
+                type="number"
+                value={formData.takeProfit}
+                onChange={(e) => updateFormData('takeProfit', e.target.value)}
+                className="input"
+                placeholder="0 (optional)"
               />
             </div>
           </div>
