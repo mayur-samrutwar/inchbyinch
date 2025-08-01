@@ -199,12 +199,12 @@ export default function Home() {
               <p className="text-gray-600 mb-6">
                 Monitor your deployed strategies and active orders in the dashboard.
               </p>
-              <a 
+              {/* <a 
                 href="/dashboard" 
                 className="btn btn-primary"
               >
                 Go to Dashboard
-              </a>
+              </a> */}
             </div>
           </div>
         )}
