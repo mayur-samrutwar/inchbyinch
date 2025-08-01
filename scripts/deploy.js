@@ -67,23 +67,8 @@ async function main() {
         const factoryAddress = await factory.getAddress();
         console.log("Factory deployed to:", factoryAddress);
         
-        // Setup authorizations
-        console.log("\n6. Setting up authorizations...");
-        
-        // Transfer ownership of OrderManager to factory
-        await orderManager.transferOwnership(factoryAddress);
-        console.log("✅ OrderManager ownership transferred to factory");
-
-        // Transfer ownership of OracleAdapter to factory
-        await oracleAdapter.transferOwnership(factoryAddress);
-        console.log("✅ OracleAdapter ownership transferred to factory");
-
-        // Transfer ownership of LOPAdapter to factory
-        await lopAdapter.transferOwnership(factoryAddress);
-        console.log("✅ LOPAdapter ownership transferred to factory");
-        
         // Initialize OracleAdapter with some default configurations
-        console.log("\n7. Configuring OracleAdapter...");
+        console.log("\n6. Configuring OracleAdapter...");
         
         // Set volatility config for ETH (example)
         const ethAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"; // WETH
@@ -96,6 +81,21 @@ async function main() {
         
         await oracleAdapter.setVolatilityConfig(ethAddress, volatilityConfig);
         console.log("Set volatility config for ETH");
+        
+        // Setup authorizations
+        console.log("\n7. Setting up authorizations...");
+        
+        // Transfer ownership of OrderManager to factory
+        await orderManager.transferOwnership(factoryAddress);
+        console.log("✅ OrderManager ownership transferred to factory");
+
+        // Transfer ownership of OracleAdapter to factory
+        await oracleAdapter.transferOwnership(factoryAddress);
+        console.log("✅ OracleAdapter ownership transferred to factory");
+
+        // Transfer ownership of LOPAdapter to factory
+        await lopAdapter.transferOwnership(factoryAddress);
+        console.log("✅ LOPAdapter ownership transferred to factory");
         
         // Deploy a test bot instance
         console.log("\n8. Deploying test bot instance...");
@@ -137,7 +137,7 @@ async function main() {
         // Save deployment info
         const deploymentInfo = {
             network: network.name || "Unknown",
-            chainId: network.chainId,
+            chainId: network.chainId.toString(),
             deployer: deployer.address,
             contracts: {
                 orderManager: orderManagerAddress,

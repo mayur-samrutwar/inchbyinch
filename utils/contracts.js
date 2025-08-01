@@ -73,7 +73,8 @@ export const CONTRACT_ABIS = {
   factory: require('./abis/inchbyinchFactory.json').abi,
   bot: require('./abis/inchbyinchBot.json').abi,
   orderManager: require('./abis/OrderManager.json').abi,
-  oracleAdapter: require('./abis/OracleAdapter.json').abi
+  oracleAdapter: require('./abis/OracleAdapter.json').abi,
+  lopAdapter: require('./abis/LOPAdapter.json').abi
 };
 
 // Contract addresses (will be loaded from deployment)
