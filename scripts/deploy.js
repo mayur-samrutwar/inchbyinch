@@ -37,8 +37,16 @@ async function main() {
         const oracleAdapterAddress = await oracleAdapter.getAddress();
         console.log("OracleAdapter deployed to:", oracleAdapterAddress);
         
+        // Deploy LOPAdapter
+        console.log("\n3. Deploying LOPAdapter...");
+        const LOPAdapter = await ethers.getContractFactory("LOPAdapter");
+        const lopAdapter = await LOPAdapter.deploy(LOP_ADDRESS);
+        await lopAdapter.waitForDeployment();
+        const lopAdapterAddress = await lopAdapter.getAddress();
+        console.log("LOPAdapter deployed to:", lopAdapterAddress);
+        
         // Deploy Bot Implementation
-        console.log("\n3. Deploying Bot Implementation...");
+        console.log("\n4. Deploying Bot Implementation...");
         const InchByInchBot = await ethers.getContractFactory("inchbyinchBot");
         const botImplementation = await InchByInchBot.deploy();
         await botImplementation.waitForDeployment();
@@ -46,20 +54,36 @@ async function main() {
         console.log("Bot Implementation deployed to:", botImplementationAddress);
         
         // Deploy Factory
-        console.log("\n4. Deploying Factory...");
+        console.log("\n5. Deploying Factory...");
         const InchByInchFactory = await ethers.getContractFactory("inchbyinchFactory");
         const factory = await InchByInchFactory.deploy(
             botImplementationAddress,
             orderManagerAddress,
             oracleAdapterAddress,
-            LOP_ADDRESS
+            LOP_ADDRESS,
+            lopAdapterAddress
         );
         await factory.waitForDeployment();
         const factoryAddress = await factory.getAddress();
         console.log("Factory deployed to:", factoryAddress);
         
+        // Setup authorizations
+        console.log("\n6. Setting up authorizations...");
+        
+        // Transfer ownership of OrderManager to factory
+        await orderManager.transferOwnership(factoryAddress);
+        console.log("✅ OrderManager ownership transferred to factory");
+
+        // Transfer ownership of OracleAdapter to factory
+        await oracleAdapter.transferOwnership(factoryAddress);
+        console.log("✅ OracleAdapter ownership transferred to factory");
+
+        // Transfer ownership of LOPAdapter to factory
+        await lopAdapter.transferOwnership(factoryAddress);
+        console.log("✅ LOPAdapter ownership transferred to factory");
+        
         // Initialize OracleAdapter with some default configurations
-        console.log("\n5. Configuring OracleAdapter...");
+        console.log("\n7. Configuring OracleAdapter...");
         
         // Set volatility config for ETH (example)
         const ethAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"; // WETH
@@ -73,17 +97,9 @@ async function main() {
         await oracleAdapter.setVolatilityConfig(ethAddress, volatilityConfig);
         console.log("Set volatility config for ETH");
         
-        // Authorize factory as updater for oracle
-        await oracleAdapter.authorizeUpdater(factoryAddress);
-        console.log("Authorized factory as oracle updater");
-        
-        // Authorize factory as bot for order manager
-        await orderManager.authorizeBot(factoryAddress);
-        console.log("Authorized factory as bot in order manager");
-        
         // Deploy a test bot instance
-        console.log("\n6. Deploying test bot instance...");
-        const deploymentCost = ethers.parseEther("0.01");
+        console.log("\n8. Deploying test bot instance...");
+        const deploymentCost = ethers.parseEther("0.001");
         const tx = await factory.deployBot(deployer.address, { value: deploymentCost });
         const receipt = await tx.wait();
         
@@ -94,10 +110,6 @@ async function main() {
         if (botDeployedEvent) {
             const botAddress = botDeployedEvent.args.bot;
             console.log("Test bot deployed to:", botAddress);
-            
-            // Authorize the test bot
-            await orderManager.authorizeBot(botAddress);
-            console.log("Authorized test bot in order manager");
         }
         
         // Print deployment summary
@@ -111,15 +123,15 @@ async function main() {
         console.log("Contract Addresses:");
         console.log("- OrderManager:", orderManagerAddress);
         console.log("- OracleAdapter:", oracleAdapterAddress);
+        console.log("- LOPAdapter:", lopAdapterAddress);
         console.log("- Bot Implementation:", botImplementationAddress);
         console.log("- Factory:", factoryAddress);
         console.log("- LOP:", LOP_ADDRESS);
         console.log("");
         console.log("Configuration:");
-        console.log("- Factory authorized as oracle updater");
-        console.log("- Factory authorized as bot in order manager");
+        console.log("- Factory is owner of all contracts");
         console.log("- ETH volatility config set");
-        console.log("- Test bot deployed and authorized");
+        console.log("- Test bot deployed");
         console.log("=".repeat(50));
         
         // Save deployment info
@@ -130,6 +142,7 @@ async function main() {
             contracts: {
                 orderManager: orderManagerAddress,
                 oracleAdapter: oracleAdapterAddress,
+                lopAdapter: lopAdapterAddress,
                 botImplementation: botImplementationAddress,
                 factory: factoryAddress,
                 lop: LOP_ADDRESS
@@ -153,7 +166,7 @@ async function main() {
         
         // Verify contracts on Etherscan (if not on local network)
         if (network.chainId !== 31337) {
-            console.log("\n7. Verifying contracts on Etherscan...");
+            console.log("\n9. Verifying contracts on Etherscan...");
             
             try {
                 await verifyContract(orderManagerAddress, []);
@@ -170,6 +183,13 @@ async function main() {
             }
             
             try {
+                await verifyContract(lopAdapterAddress, [LOP_ADDRESS]);
+                console.log("LOPAdapter verified");
+            } catch (error) {
+                console.log("LOPAdapter verification failed:", error.message);
+            }
+            
+            try {
                 await verifyContract(botImplementationAddress, []);
                 console.log("Bot Implementation verified");
             } catch (error) {
@@ -181,7 +201,8 @@ async function main() {
                     botImplementationAddress,
                     orderManagerAddress,
                     oracleAdapterAddress,
-                    LOP_ADDRESS
+                    LOP_ADDRESS,
+                    lopAdapterAddress
                 ]);
                 console.log("Factory verified");
             } catch (error) {
