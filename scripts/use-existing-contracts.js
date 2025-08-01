@@ -87,7 +87,7 @@ async function main() {
   // Approve tokens for the bot
   console.log("🔐 Approving tokens for bot...");
   const weth = await ethers.getContractAt("IERC20", WETH_ADDRESS);
-  const USDC_ADDRESS = "0x036cbd53842c5426634e7929541ec2318f3dcf7e";
+  const USDC_ADDRESS = "0x036cbd53842c5426634e7929541ec2318f3dcf7e"; // Real Base Sepolia USDC
   const usdc = await ethers.getContractAt("IERC20", USDC_ADDRESS);
   
   await weth.approve(botAddress, ethers.parseEther("1000"), { gasPrice: 3000000000 });

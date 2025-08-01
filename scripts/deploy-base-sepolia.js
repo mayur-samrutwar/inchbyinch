@@ -23,7 +23,7 @@ async function main() {
   
   // Testnet token addresses (if available, otherwise we'll use mock tokens)
   const WETH_ADDRESS = "0x4200000000000000000000000000000000000006"; // Base Sepolia WETH
-  const USDC_ADDRESS = "0x036cbd53842c5426634e7929541ec2318f3dcf7e"; // Temporarily using WETH for testing
+  const USDC_ADDRESS = "0x036cbd53842c5426634e7929541ec2318f3dcf7e"; // Real Base Sepolia USDC
 
   console.log("📋 Configuration:");
   console.log("- Network:", NETWORK_NAME);

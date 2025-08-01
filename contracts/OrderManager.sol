@@ -32,6 +32,7 @@ contract OrderManager is IOrderManager, Ownable, ReentrancyGuard, Pausable {
     error OrderNotFound();
     error OrderAlreadyExists();
     error StrategyNotFound();
+    error StrategyAlreadyExists();
     error UnauthorizedBot();
     error InvalidOrderData();
     error InvalidStrategyType();
@@ -243,7 +244,7 @@ contract OrderManager is IOrderManager, Ownable, ReentrancyGuard, Pausable {
         if (strategyType > 2) revert InvalidStrategyType();
         
         // Check if strategy already exists
-        if (_strategies[bot].bot != address(0)) revert StrategyNotFound();
+        if (_strategies[bot].bot != address(0)) revert StrategyAlreadyExists();
         
         StrategyInfo memory strategyInfo = StrategyInfo({
             bot: bot,

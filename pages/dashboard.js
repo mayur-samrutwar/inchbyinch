@@ -179,7 +179,7 @@ export default function Dashboard() {
 
           // Try to get USDC balance if contract exists (Base Sepolia USDC)
           try {
-            const usdcBalance = await contractService.getBotBalance(bot.address, '0x036cbd53842c5426634e7929541ec2318f3dcf7e');
+            const usdcBalance = await contractService.getBotBalance(bot.address, '0x036cbd53842c5426634e7929541ec2318f3dcf7e'); // Real Base Sepolia USDC
             balances[bot.address].USDC = usdcBalance;
           } catch (error) {
             console.log('USDC not available for this bot');
@@ -204,7 +204,7 @@ export default function Dashboard() {
       const contractService = (await import('../utils/contractService')).default;
       await contractService.initialize(publicClient, walletClient);
 
-      const tokenAddress = token === 'ETH' ? '0x0000000000000000000000000000000000000000' : '0x036cbd53842c5426634e7929541ec2318f3dcf7e';
+              const tokenAddress = token === 'ETH' ? '0x0000000000000000000000000000000000000000' : '0x036cbd53842c5426634e7929541ec2318f3dcf7e'; // Real Base Sepolia USDC
       const amountWei = token === 'ETH' ? parseEther(amount) : parseUnits(amount, 6);
 
       await contractService.withdrawFromBot(botAddress, tokenAddress, amountWei);

@@ -1,4 +1,4 @@
-import { parseEther, formatEther } from 'viem';
+import { parseEther, formatEther, parseUnits } from 'viem';
 
 // Network configurations
 export const NETWORKS = {
@@ -53,7 +53,7 @@ export const TOKENS = {
   },
   baseSepolia: {
     WETH: '0x4200000000000000000000000000000000000006',
-    USDC: '0x036cbd53842c5426634e7929541ec2318f3dcf7e',
+    USDC: '0x036cbd53842c5426634e7929541ec2318f3dcf7e', // Real Base Sepolia USDC
     DAI: '0x0000000000000000000000000000000000000000' // Not available on Base Sepolia
   },
   sepolia: {
@@ -212,7 +212,7 @@ export function formatTokenAmount(amount, decimals = 18) {
 
 // Parse token amount
 export function parseTokenAmount(amount, decimals = 18) {
-  return parseEther(amount.toString());
+  return parseUnits(amount.toString(), decimals);
 }
 
 // Estimate gas with buffer for safe transactions

@@ -108,7 +108,7 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
      * @param user The user address
      * @return bot The deployed bot address
      */
-    function deployBot(address user) external payable validAddress(user) validDeposit(msg.value) returns (address bot) {
+    function deployBot(address user) external payable whenNotPaused validAddress(user) validDeposit(msg.value) returns (address bot) {
         // Check user limit
         if (userBots[user].length >= MAX_BOTS_PER_USER) revert UserLimitExceeded();
         
@@ -118,11 +118,11 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
         // Initialize the bot
         inchbyinchBot(bot).initialize(lop, lopAdapter, orderManager, oracleAdapter, user);
         
+        // Authorize the bot in OrderManager (factory is authorized to do this)
+        IOrderManager(orderManager).authorizeBot(bot);
+        
         // Note: Bot ownership remains with factory for security
         // User can interact through factory functions
-        
-        // Note: Bot authorization should be done by the owner of OrderManager
-        // This is typically done during deployment or by admin
         
         // Store bot
         userBots[user].push(bot);
@@ -142,7 +142,7 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
     function deployMultipleBots(
         address user,
         uint256 count
-    ) external payable validAddress(user) returns (address[] memory bots) {
+    ) external payable whenNotPaused validAddress(user) returns (address[] memory bots) {
         if (count == 0 || count > 5) revert ZeroAmount();
         if (userBots[user].length + count > MAX_BOTS_PER_USER) revert UserLimitExceeded();
         
@@ -158,9 +158,10 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
             // Initialize the bot
             inchbyinchBot(bot).initialize(lop, lopAdapter, orderManager, oracleAdapter, user);
             
-            // Note: Bot ownership remains with factory for security
+            // Authorize the bot in OrderManager (factory is authorized to do this)
+            IOrderManager(orderManager).authorizeBot(bot);
             
-            // Note: Bot authorization should be done by the owner of OrderManager
+            // Note: Bot ownership remains with factory for security
             
             // Store bot
             userBots[user].push(bot);
@@ -183,7 +184,7 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
     function upgradeBot(
         address user,
         uint256 botIndex
-    ) external payable validAddress(user) validDeposit(msg.value) returns (address newBot) {
+    ) external payable whenNotPaused validAddress(user) validDeposit(msg.value) returns (address newBot) {
         address[] storage bots = userBots[user];
         if (botIndex >= bots.length) revert BotNotFound();
         
@@ -196,9 +197,10 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
         // Initialize the new bot
         inchbyinchBot(newBot).initialize(lop, lopAdapter, orderManager, oracleAdapter, user);
         
-        // Note: Bot ownership remains with factory for security
+        // Authorize the bot in OrderManager (factory is authorized to do this)
+        IOrderManager(orderManager).authorizeBot(newBot);
         
-        // Note: Bot authorization should be done by the owner of OrderManager
+        // Note: Bot ownership remains with factory for security
         
         // Replace old bot
         bots[botIndex] = newBot;

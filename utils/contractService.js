@@ -1,4 +1,4 @@
-import { createPublicClient, createWalletClient, http, getAddress, parseEther, formatEther, parseUnits } from 'viem';
+import { createPublicClient, createWalletClient, http, getAddress, parseEther, formatEther, parseUnits, formatUnits } from 'viem';
 import { getNetworkConfig, getContractAddressesForNetwork, CONTRACT_ABIS, createBotContract, createFactoryContract, formatTokenAmount, parseTokenAmount, estimateGasWithBuffer } from './contracts.js';
 
 class ContractService {
@@ -217,9 +217,36 @@ class ContractService {
       const startPriceWei = parseTokenAmount(startPrice, 18);
       const spacingPercentage = parseInt(spacing); // Keep as percentage, don't convert to wei
       const orderSizeWei = parseTokenAmount(orderSize, 18);
-      const budgetWei = parseTokenAmount(budget, 18);
-      const stopLossWei = stopLoss > 0 ? parseTokenAmount(stopLoss, 18) : 0;
-      const takeProfitWei = takeProfit > 0 ? parseTokenAmount(takeProfit, 18) : 0;
+      
+      // Convert budget based on strategy type
+      // For BUY_LADDER (0): budget should be in USDC (6 decimals)
+      // For SELL_LADDER (1): budget should be in ETH (18 decimals) 
+      // For BUY_SELL (2): budget should be in USDC (6 decimals)
+      let budgetWei;
+      if (strategyType === 0 || strategyType === 2) {
+        // BUY_LADDER or BUY_SELL - budget in USDC
+        budgetWei = parseTokenAmount(budget, 6);
+        console.log('Budget conversion - Input:', budget, 'Decimals: 6, Output:', budgetWei.toString());
+      } else {
+        // SELL_LADDER - budget in ETH
+        budgetWei = parseTokenAmount(budget, 18);
+        console.log('Budget conversion - Input:', budget, 'Decimals: 18, Output:', budgetWei.toString());
+      }
+      
+      // Convert stopLoss and takeProfit based on strategy type
+      // stopLoss and takeProfit should be prices in wei (same units as startPrice)
+      let stopLossWei, takeProfitWei;
+      if (strategyType === 0 || strategyType === 2) {
+        // BUY_LADDER or BUY_SELL - stopLoss as price in wei
+        stopLossWei = stopLoss > 0 ? parseTokenAmount(stopLoss, 18) : 0;
+        takeProfitWei = takeProfit > 0 ? parseTokenAmount(takeProfit, 18) : 0;
+      } else {
+        // SELL_LADDER - stopLoss as price in wei
+        stopLossWei = stopLoss > 0 ? parseTokenAmount(stopLoss, 18) : 0;
+        takeProfitWei = takeProfit > 0 ? parseTokenAmount(takeProfit, 18) : 0;
+      }
+      
+      console.log('Price debug - StartPrice:', startPriceWei.toString(), 'StopLoss:', stopLossWei.toString(), 'TakeProfit:', takeProfitWei.toString());
 
       console.log('Strategy parameters debug:');
       console.log('- orderSize (input):', orderSize);
@@ -239,10 +266,54 @@ class ContractService {
         throw new Error(`Order size too large. Maximum is 1000 ETH, but you provided ${orderSize} ETH`);
       }
 
-      // Calculate expiry time
-      const expiryTimestamp = Math.floor(Date.now() / 1000) + (expiryTime * 3600); // hours to seconds
+      // Validate spacing
+      if (spacingPercentage < 1 || spacingPercentage > 1000) {
+        throw new Error(`Invalid spacing. Must be between 1% and 1000%, but you provided ${spacingPercentage}%`);
+      }
 
-      // Create strategy using Viem with user as caller
+      // Validate numOrders
+      if (numOrders < 1 || numOrders > 50) {
+        throw new Error(`Invalid number of orders. Must be between 1 and 50, but you provided ${numOrders}`);
+      }
+
+      // Validate strategy type
+      if (strategyType < 0 || strategyType > 2) {
+        throw new Error(`Invalid strategy type. Must be 0 (buy), 1 (sell), or 2 (both), but you provided ${strategyType}`);
+      }
+
+      // Validate repost mode
+      if (repostMode < 0 || repostMode > 2) {
+        throw new Error(`Invalid repost mode. Must be 0 (next), 1 (same), or 2 (stop), but you provided ${repostMode}`);
+      }
+
+      // Calculate expiry time
+      const currentTime = Math.floor(Date.now() / 1000);
+      const expiryTimestamp = currentTime + (expiryTime * 3600); // hours to seconds
+      console.log('Time debug - Current:', currentTime, 'Expiry:', expiryTimestamp, 'Hours from now:', expiryTime);
+
+      // Note: Balance check and token transfer are handled in the main page before calling createStrategy
+      console.log('Creating strategy with budget:', budget);
+      console.log('Strategy parameters for contract call:');
+      console.log('- makerAsset:', makerAsset);
+      console.log('- takerAsset:', takerAsset);
+      console.log('- startPrice:', startPriceWei.toString());
+      console.log('- spacing:', spacingPercentage);
+      console.log('- orderSize:', orderSizeWei.toString());
+      console.log('- numOrders:', numOrders);
+      console.log('- strategyType:', strategyType);
+      console.log('- repostMode:', repostMode);
+      console.log('- budget:', budgetWei.toString());
+      console.log('- stopLoss:', stopLossWei.toString());
+      console.log('- takeProfit:', takeProfitWei.toString());
+      console.log('- expiryTime:', expiryTimestamp);
+      console.log('- flipToSell:', flipToSell);
+      console.log('- flipPercentage:', flipPercentage);
+
+      // Try to call createStrategy with minimal parameters first
+      console.log('Attempting to call createStrategy with minimal validation...');
+      
+      // Use actual stopLoss and takeProfit values
+      console.log('Using actual stopLoss and takeProfit values...');
       const { request } = await this.publicClient.simulateContract({
         address: botAddress,
         abi: CONTRACT_ABIS.bot,
@@ -257,8 +328,8 @@ class ContractService {
           strategyType,
           repostMode,
           budgetWei,
-          stopLossWei,
-          takeProfitWei,
+          stopLossWei, // Use actual stopLoss
+          takeProfitWei, // Use actual takeProfit
           expiryTimestamp,
           flipToSell,
           flipPercentage
@@ -280,6 +351,59 @@ class ContractService {
 
     } catch (error) {
       console.error('Error creating strategy:', error);
+      
+      // Try to decode the error manually
+      if (error.message.includes('0x56a02da8')) {
+        console.error('Unknown error signature 0x56a02da8 - this might be a custom error not in our ABI');
+        console.error('This could indicate:');
+        console.error('1. The deployed contract has different validation logic');
+        console.error('2. A dependency contract is reverting');
+        console.error('3. The contract was deployed with a different version');
+        
+        // Try to get more error details
+        try {
+          const errorData = error.data || error.cause?.data;
+          if (errorData) {
+            console.error('Error data:', errorData);
+          }
+        } catch (e) {
+          console.error('Could not extract error data:', e);
+        }
+      }
+      
+      // Provide more helpful error messages
+      if (error.message.includes('InsufficientBalance')) {
+        throw new Error(`Insufficient token balance. For a BUY strategy, you need USDC tokens. For a SELL strategy, you need ETH tokens. Please get test tokens first or reduce your budget.`);
+      }
+      
+      if (error.message.includes('InvalidStrategy')) {
+        throw new Error(`Invalid strategy parameters. Please check your configuration and try again.`);
+      }
+      
+      if (error.message.includes('InvalidSpacing')) {
+        throw new Error(`Invalid spacing value. Must be between 1% and 1000%.`);
+      }
+      
+      if (error.message.includes('InvalidOrderSize')) {
+        throw new Error(`Invalid order size. Must be between 0.001 ETH and 1000 ETH.`);
+      }
+      
+      if (error.message.includes('InvalidPrice')) {
+        throw new Error(`Invalid price value. Please check your start price and try again.`);
+      }
+      
+      if (error.message.includes('InvalidStopLoss')) {
+        throw new Error(`Invalid stop loss value. Stop loss must be below the start price for buy strategies.`);
+      }
+      
+      if (error.message.includes('InvalidTakeProfit')) {
+        throw new Error(`Invalid take profit value. Take profit must be above the start price for sell strategies.`);
+      }
+      
+      if (error.message.includes('StrategyAlreadyActive')) {
+        throw new Error(`Strategy is already active. Please cancel the current strategy first.`);
+      }
+      
       throw new Error(`Failed to create strategy: ${error.message}`);
     }
   }
@@ -607,26 +731,49 @@ class ContractService {
   // Get token balance
   async getTokenBalance(tokenAddress, userAddress) {
     try {
-      // Use Viem to read token balance and decimals
-      const [balance, decimals] = await Promise.all([
-        this.publicClient.readContract({
-          address: tokenAddress,
-          abi: [
-            { name: 'balanceOf', type: 'function', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view' }
-          ],
-          functionName: 'balanceOf',
-          args: [userAddress]
-        }),
-        this.publicClient.readContract({
-          address: tokenAddress,
-          abi: [
-            { name: 'decimals', type: 'function', inputs: [], outputs: [{ name: '', type: 'uint8' }], stateMutability: 'view' }
-          ],
-          functionName: 'decimals'
-        })
-      ]);
+      // Read token balance
+      const balance = await this.publicClient.readContract({
+        address: tokenAddress,
+        abi: [
+          { name: 'balanceOf', type: 'function', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view' }
+        ],
+        functionName: 'balanceOf',
+        args: [userAddress]
+      });
 
-      return formatTokenAmount(balance, decimals);
+      // Use hardcoded decimals for known tokens
+      let decimals;
+      if (tokenAddress.toLowerCase() === '0x036cbd53842c5426634e7929541ec2318f3dcf7e'.toLowerCase()) {
+        // USDC on Base Sepolia
+        decimals = 6;
+      } else if (tokenAddress.toLowerCase() === '0x4200000000000000000000000000000000000006'.toLowerCase()) {
+        // WETH on Base Sepolia
+        decimals = 18;
+      } else {
+        // For unknown tokens, try to read decimals from contract
+        try {
+          decimals = await this.publicClient.readContract({
+            address: tokenAddress,
+            abi: [
+              { name: 'decimals', type: 'function', inputs: [], outputs: [{ name: '', type: 'uint8' }], stateMutability: 'view' }
+            ],
+            functionName: 'decimals'
+          });
+        } catch (error) {
+          console.error('Error reading decimals, defaulting to 18:', error);
+          decimals = 18;
+        }
+      }
+
+      console.log('Token balance (wei):', balance.toString());
+      console.log('Token decimals:', decimals);
+      
+      // Convert balance to BigInt and format
+      const balanceBigInt = BigInt(balance);
+      const formattedBalance = formatUnits(balanceBigInt, decimals);
+      console.log('Formatted balance:', formattedBalance);
+      
+      return formattedBalance;
 
     } catch (error) {
       console.error('Error getting token balance:', error);
@@ -705,7 +852,25 @@ class ContractService {
         args: [botAddress]
       });
 
-      return formatTokenAmount(balance, 18);
+      // Use hardcoded decimals for known tokens
+      let decimals;
+      if (tokenAddress.toLowerCase() === '0x036cbd53842c5426634e7929541ec2318f3dcf7e'.toLowerCase()) {
+        // USDC on Base Sepolia
+        decimals = 6;
+      } else if (tokenAddress.toLowerCase() === '0x4200000000000000000000000000000000000006'.toLowerCase()) {
+        // WETH on Base Sepolia
+        decimals = 18;
+      } else {
+        decimals = 18; // Default
+      }
+
+      // Convert balance to BigInt and format
+      const balanceBigInt = BigInt(balance);
+      const formattedBalance = formatUnits(balanceBigInt, decimals);
+      console.log('Bot balance (wei):', balance.toString());
+      console.log('Bot balance (formatted):', formattedBalance);
+      
+      return formattedBalance;
 
     } catch (error) {
       console.error('Error getting bot balance:', error);
@@ -742,6 +907,82 @@ class ContractService {
     } catch (error) {
       console.error('Error in emergency recovery:', error);
       throw new Error(`Failed to emergency recover: ${error.message}`);
+    }
+  }
+
+  // Test bot contract functionality
+  async testBotContract(botAddress) {
+    try {
+      console.log('Testing bot contract functionality...');
+      
+      // Try to read owner
+      const owner = await this.publicClient.readContract({
+        address: botAddress,
+        abi: CONTRACT_ABIS.bot,
+        functionName: 'owner'
+      });
+      
+      console.log('Bot owner:', owner);
+      
+      // Try to read strategy info
+      const strategy = await this.publicClient.readContract({
+        address: botAddress,
+        abi: CONTRACT_ABIS.bot,
+        functionName: 'strategy'
+      });
+      
+      console.log('Current strategy:', strategy);
+      
+      // Try to read constants to verify contract version
+      try {
+        const maxOrders = await this.publicClient.readContract({
+          address: botAddress,
+          abi: CONTRACT_ABIS.bot,
+          functionName: 'MAX_ORDERS'
+        });
+        console.log('MAX_ORDERS:', maxOrders.toString());
+      } catch (e) {
+        console.log('Could not read MAX_ORDERS:', e.message);
+      }
+      
+      try {
+        const minSpacing = await this.publicClient.readContract({
+          address: botAddress,
+          abi: CONTRACT_ABIS.bot,
+          functionName: 'MIN_SPACING'
+        });
+        console.log('MIN_SPACING:', minSpacing.toString());
+      } catch (e) {
+        console.log('Could not read MIN_SPACING:', e.message);
+      }
+      
+      // Test OrderManager contract
+      try {
+        const orderManagerAddress = await this.publicClient.readContract({
+          address: botAddress,
+          abi: CONTRACT_ABIS.bot,
+          functionName: 'orderManager'
+        });
+        console.log('OrderManager address:', orderManagerAddress);
+        
+        // Try to call a simple function on OrderManager
+        const orderManagerOwner = await this.publicClient.readContract({
+          address: orderManagerAddress,
+          abi: CONTRACT_ABIS.orderManager,
+          functionName: 'owner'
+        });
+        console.log('OrderManager owner:', orderManagerOwner);
+        
+        // Test OrderManager contract access
+        console.log('OrderManager contract access verified');
+      } catch (e) {
+        console.log('OrderManager test failed:', e.message);
+      }
+      
+      return { owner, strategy };
+    } catch (error) {
+      console.error('Error testing bot contract:', error);
+      throw error;
     }
   }
 
@@ -787,9 +1028,22 @@ class ContractService {
       const hash = await this.walletClient.writeContract(request);
       console.log('Token transfer transaction:', hash);
 
-      // Wait for confirmation
-      const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
-      console.log('Tokens transferred successfully:', receipt);
+      // Wait for confirmation with retry logic
+      let receipt;
+      try {
+        receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+        console.log('Tokens transferred successfully:', receipt);
+      } catch (error) {
+        console.error('Error waiting for transaction receipt:', error);
+        // Check if transaction was successful despite receipt error
+        const tx = await this.publicClient.getTransaction({ hash });
+        if (tx && tx.status === 'success') {
+          console.log('Transaction successful despite receipt error');
+          receipt = { hash, status: 'success' };
+        } else {
+          throw new Error(`Transaction failed: ${error.message}`);
+        }
+      }
 
       return {
         txHash: hash,
@@ -811,6 +1065,7 @@ class ContractService {
   getSupportedNetworks() {
     return [{ chainId: 84532, name: 'Base Sepolia' }];
   }
+
 }
 
 // Create singleton instance

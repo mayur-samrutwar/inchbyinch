@@ -22,7 +22,7 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
     orderSize: '0.05',
     numOrders: '10',
     postFillBehavior: 'next',
-    budget: '1500',
+    budget: '0.2',
     // Advanced options
     maxOrders: '3',
     cooldownMinutes: '5',
@@ -64,9 +64,29 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
   }, [ethPrice, formData.selectedPair, updateFormData]);
 
   // Calculate totals
-  const totalSpend = parseFloat(formData.orderSize) * parseFloat(formData.numOrders) * parseFloat(formData.startPrice);
-  const endPrice = parseFloat(formData.startPrice) - (parseFloat(formData.numOrders) - 1) * parseFloat(formData.spacing);
-  const averagePrice = (parseFloat(formData.startPrice) + endPrice) / 2;
+  const orderSize = parseFloat(formData.orderSize);
+  const numOrders = parseInt(formData.numOrders);
+  const startPrice = parseFloat(formData.startPrice);
+  const spacing = parseFloat(formData.spacing);
+  
+  // Calculate actual budget needed for BUY strategy
+  let totalSpend;
+  if (formData.strategyType === 'buy') {
+    // For BUY strategy, calculate total cost of all orders
+    let totalCost = 0;
+    for (let i = 0; i < numOrders; i++) {
+      const orderPrice = startPrice - (i * spacing);
+      const orderCost = orderSize * orderPrice;
+      totalCost += orderCost;
+    }
+    totalSpend = totalCost;
+  } else {
+    // For SELL strategy, use budget as provided
+    totalSpend = parseFloat(formData.budget);
+  }
+  
+  const endPrice = startPrice - (numOrders - 1) * spacing;
+  const averagePrice = (startPrice + endPrice) / 2;
 
   const handleDeploy = async () => {
     if (!isConnected) {
@@ -74,8 +94,31 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
       return;
     }
 
-    if (totalSpend > parseFloat(formData.budget)) {
-      alert('Total spend exceeds your budget! Please adjust order size or number of orders.');
+    // Validate parameters before deployment
+    if (parseFloat(formData.orderSize) < 0.001) {
+      alert('Order size too small! Minimum is 0.001 ETH.');
+      return;
+    }
+    
+    if (parseFloat(formData.orderSize) > 1000) {
+      alert('Order size too large! Maximum is 1000 ETH.');
+      return;
+    }
+    
+    if (parseFloat(formData.spacing) < 1 || parseFloat(formData.spacing) > 1000) {
+      alert('Invalid spacing! Must be between 1% and 1000%.');
+      return;
+    }
+    
+    if (parseInt(formData.numOrders) < 1 || parseInt(formData.numOrders) > 50) {
+      alert('Invalid number of orders! Must be between 1 and 50.');
+      return;
+    }
+    
+    // For BUY strategy, budget should cover the calculated total spend
+    // For SELL strategy, we need to check if user has enough ETH
+    if (formData.strategyType === 'buy' && parseFloat(formData.budget) < totalSpend) {
+      alert(`Budget too low! You need ${totalSpend.toFixed(2)} USDC but only have ${formData.budget} USDC. Please increase your budget or reduce the number of orders.`);
       return;
     }
 
@@ -365,7 +408,7 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
           value={formData.budget}
           onChange={(e) => updateFormData('budget', e.target.value)}
           className="input"
-          placeholder="1500"
+          placeholder="0.2"
         />
         {totalSpend > parseFloat(formData.budget) && (
           <p className="text-red-500 text-xs mt-1">Total spend exceeds budget</p>
@@ -440,9 +483,17 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Budget:</span>
+                <span className="text-gray-600">Your Budget:</span>
                 <span className="font-medium text-gray-900">${formData.budget}</span>
               </div>
+              {formData.strategyType === 'buy' && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Budget Status:</span>
+                  <span className={`font-medium ${totalSpend > parseFloat(formData.budget) ? 'text-red-500' : 'text-green-600'}`}>
+                    {totalSpend > parseFloat(formData.budget) ? 'Insufficient' : 'Sufficient'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
