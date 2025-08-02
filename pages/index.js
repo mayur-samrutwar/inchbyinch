@@ -159,6 +159,39 @@ export default function Home() {
         }
       }
 
+      // Check if there's already an active strategy
+      console.log('Checking for existing strategy...');
+      try {
+        const existingStrategy = await contractService.getBotStrategy(botDeployment.botAddress);
+        if (existingStrategy.isActive) {
+          console.log('Found existing active strategy:', existingStrategy);
+          
+          // Ask user if they want to cancel the existing strategy
+          const shouldCancel = confirm(
+            `This bot already has an active strategy.\n\n` +
+            `Current strategy:\n` +
+            `- Type: ${existingStrategy.strategyType === '0' ? 'Buy Ladder' : existingStrategy.strategyType === '1' ? 'Sell Ladder' : 'Buy+Sell'}\n` +
+            `- Orders: ${existingStrategy.numOrders}\n` +
+            `- Order Size: ${existingStrategy.orderSize} ETH\n` +
+            `- Start Price: $${existingStrategy.startPrice}\n\n` +
+            `Would you like to cancel the existing strategy and create a new one?`
+          );
+          
+          if (shouldCancel) {
+            console.log('Cancelling existing strategy...');
+            await contractService.cancelStrategy(botDeployment.botAddress);
+            console.log('Existing strategy cancelled');
+          } else {
+            throw new Error('Strategy creation cancelled by user');
+          }
+        } else {
+          console.log('No existing active strategy found');
+        }
+      } catch (error) {
+        console.error('Error checking existing strategy:', error);
+        // Continue anyway - the contract will handle the error if there's an active strategy
+      }
+      
       // Create strategy on the bot
       console.log('Creating strategy...');
       
@@ -329,27 +362,6 @@ export default function Home() {
             />
           </div>
         </div>
-
-        {/* Quick Access to Dashboard */}
-        {isConnected && (
-          <div className="mt-16 max-w-4xl mx-auto">
-            <Card className="text-center border-0 shadow-lg bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="text-2xl">View Your Active Orders</CardTitle>
-                <CardDescription>
-                  Monitor your deployed strategies and active orders in the dashboard.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button asChild className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-                  <Link href="/dashboard">
-                    Go to Dashboard
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
       </main>
     </div>
   );

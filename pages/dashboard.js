@@ -84,9 +84,11 @@ export default function Dashboard() {
           
           const botOrders = await contractService.getBotOrders(botAddress);
           console.log(`Found ${botOrders.length} orders for bot ${botAddress}`);
+          console.log(`Bot orders data:`, botOrders);
           
           const botStrategy = await contractService.getBotStrategy(botAddress);
           console.log(`Strategy for bot ${botAddress}:`, botStrategy);
+          console.log(`Strategy isActive: ${botStrategy.isActive}, makerAsset: ${botStrategy.makerAsset}, takerAsset: ${botStrategy.takerAsset}`);
           
           // Transform orders to match UI format
           const transformedOrders = botOrders.map(order => ({
@@ -97,10 +99,22 @@ export default function Dashboard() {
             status: order.isActive ? 'Active' : 'Filled',
             timestamp: new Date(order.createdAt).toLocaleString(),
             txHash: order.hash.substring(0, 10) + '...' + order.hash.substring(order.hash.length - 8),
-            botAddress: botAddress
+            botAddress: botAddress,
+            strategyActive: botStrategy.isActive
           }));
           
-          allOrders.push(...transformedOrders);
+          // Only show orders from active strategies, or show inactive orders with a note
+          if (botStrategy.isActive) {
+            allOrders.push(...transformedOrders);
+          } else {
+            // For inactive strategies, only show filled orders or add a note
+            const inactiveOrders = transformedOrders.map(order => ({
+              ...order,
+              status: 'Inactive Strategy',
+              note: 'Strategy is inactive - orders cannot be cancelled'
+            }));
+            allOrders.push(...inactiveOrders);
+          }
 
           // Calculate stats only if strategy is active
           if (botStrategy.isActive) {
@@ -225,8 +239,21 @@ export default function Dashboard() {
       const contractService = (await import('../utils/contractService')).default;
       await contractService.initialize(publicClient, walletClient);
 
-              const tokenAddress = token === 'ETH' ? '0x0000000000000000000000000000000000000000' : '0x036cbd53842c5426634e7929541ec2318f3dcf7e'; // Real Base Sepolia USDC
-      const amountWei = token === 'ETH' ? parseEther(amount) : parseUnits(amount, 6);
+      // Map token symbols to addresses and decimals
+      let tokenAddress, amountWei;
+      
+      if (token === 'ETH') {
+        tokenAddress = '0x0000000000000000000000000000000000000000';
+        amountWei = parseEther(amount);
+      } else if (token === 'USDC') {
+        tokenAddress = '0x036cbd53842c5426634e7929541ec2318f3dcf7e'; // Real Base Sepolia USDC
+        amountWei = parseUnits(amount, 6);
+      } else if (token === 'WETH') {
+        tokenAddress = '0x4200000000000000000000000000000000000006'; // WETH on Base Sepolia
+        amountWei = parseEther(amount);
+      } else {
+        throw new Error(`Unsupported token: ${token}`);
+      }
 
       await contractService.withdrawFromBot(botAddress, tokenAddress, amountWei);
       
@@ -340,13 +367,14 @@ export default function Dashboard() {
                     <th className="text-left py-3 text-gray-600 font-medium text-sm">Price</th>
                     <th className="text-left py-3 text-gray-600 font-medium text-sm">Size</th>
                     <th className="text-left py-3 text-gray-600 font-medium text-sm">Status</th>
+                    <th className="text-left py-3 text-gray-600 font-medium text-sm">Strategy</th>
                     <th className="text-left py-3 text-gray-600 font-medium text-sm">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {activeOrders.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="text-center py-8 text-gray-500">
+                      <td colSpan="7" className="text-center py-8 text-gray-500">
                         {isConnected ? 
                           'No active orders found. Deploy a strategy from the homepage to get started.' : 
                           'Connect your wallet to view active orders'
@@ -364,19 +392,50 @@ export default function Dashboard() {
                           <span className={`badge ${
                             order.status === 'Active' 
                               ? 'badge-success' 
+                              : order.status === 'Inactive Strategy'
+                              ? 'badge-warning'
                               : 'badge-neutral'
                           }`}>
                             {order.status}
+                          </span>
+                          {order.note && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              {order.note}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-4">
+                          <span className={`badge ${
+                            order.strategyActive 
+                              ? 'badge-success' 
+                              : 'badge-warning'
+                          }`}>
+                            {order.strategyActive ? 'Active' : 'Inactive'}
                           </span>
                         </td>
                         <td className="py-4">
                           <div className="flex space-x-2">
                             <button 
-                              className="btn btn-secondary text-sm"
+                              className={`btn text-sm ${order.strategyActive ? 'btn-secondary' : 'btn-disabled'}`}
+                              disabled={!order.strategyActive}
                               onClick={async () => {
+                                if (!order.strategyActive) {
+                                  alert('Cannot cancel order: Strategy is inactive.');
+                                  return;
+                                }
+                                
                                 try {
                                   const contractService = (await import('../utils/contractService')).default;
                                   await contractService.initialize(publicClient, walletClient);
+                                  
+                                  // Check if strategy is active before attempting to cancel
+                                  const strategy = await contractService.getBotStrategy(order.botAddress);
+                                  if (!strategy.isActive) {
+                                    alert('Cannot cancel order: Strategy is not active. The strategy may have expired or been cancelled.');
+                                    loadActiveOrders(); // Refresh to update UI
+                                    return;
+                                  }
+                                  
                                   await contractService.cancelOrder(order.botAddress, order.id);
                                   alert('Order cancelled successfully!');
                                   loadActiveOrders(); // Refresh orders
@@ -389,11 +448,26 @@ export default function Dashboard() {
                               Cancel Order
                             </button>
                             <button 
-                              className="btn btn-danger text-sm"
+                              className={`btn text-sm ${order.strategyActive ? 'btn-danger' : 'btn-disabled'}`}
+                              disabled={!order.strategyActive}
                               onClick={async () => {
+                                if (!order.strategyActive) {
+                                  alert('Cannot cancel orders: Strategy is inactive.');
+                                  return;
+                                }
+                                
                                 try {
                                   const contractService = (await import('../utils/contractService')).default;
                                   await contractService.initialize(publicClient, walletClient);
+                                  
+                                  // Check if strategy is active before attempting to cancel
+                                  const strategy = await contractService.getBotStrategy(order.botAddress);
+                                  if (!strategy.isActive) {
+                                    alert('Cannot cancel orders: Strategy is not active. The strategy may have expired or been cancelled.');
+                                    loadActiveOrders(); // Refresh to update UI
+                                    return;
+                                  }
+                                  
                                   await contractService.cancelAllOrders(order.botAddress);
                                   alert('All orders cancelled successfully!');
                                   loadActiveOrders(); // Refresh orders

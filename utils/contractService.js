@@ -313,6 +313,34 @@ class ContractService {
       // Calculate expiry time
       const currentTime = Math.floor(Date.now() / 1000);
       const expiryTimestamp = currentTime + (expiryTime * 3600); // hours to seconds
+      
+      // Check if there's an existing strategy and if it's expired
+      try {
+        const existingStrategy = await this.publicClient.readContract({
+          address: botAddress,
+          abi: CONTRACT_ABIS.bot,
+          functionName: 'strategy'
+        });
+
+        const existingExpiryTime = Number(existingStrategy[11]); // expiryTime is at index 11
+        
+        console.log(`Strategy check - Current time: ${currentTime}, Existing expiry time: ${existingExpiryTime}, isActive: ${existingStrategy[12]}`);
+        
+        // Check if strategy is active AND not expired
+        if (existingStrategy[12] && currentTime <= existingExpiryTime) {
+          throw new Error('Strategy is already active. Please cancel the current strategy first.');
+        }
+        
+        // If strategy is expired, log it but continue
+        if (existingStrategy[12] && currentTime > existingExpiryTime) {
+          console.log('Found expired strategy. Will override it with new strategy.');
+        }
+      } catch (strategyCheckError) {
+        if (strategyCheckError.message.includes('Strategy is already active')) {
+          throw strategyCheckError; // Re-throw the active strategy error
+        }
+        console.log('Strategy check failed, continuing with strategy creation:', strategyCheckError.message);
+      }
       console.log('Time debug - Current:', currentTime, 'Expiry:', expiryTimestamp, 'Hours from now:', expiryTime);
 
       // Note: Balance check and token transfer are handled in the main page before calling createStrategy
@@ -547,26 +575,29 @@ class ContractService {
       
       console.log('Strategy retrieved successfully:', strategy);
       
+      // Strategy is returned as an array, so we need to access by index
+      // Based on the contract structure: [makerAsset, takerAsset, startPrice, spacing, orderSize, numOrders, strategyType, repostMode, budget, stopLoss, takeProfit, expiryTime, isActive, currentOrderIndex, totalFilled, totalSpent, flipToSell, flipPercentage, flipSellActive]
+      
       return {
-        makerAsset: strategy.makerAsset,
-        takerAsset: strategy.takerAsset,
-        startPrice: formatTokenAmount(strategy.startPrice, 18),
-        spacing: formatTokenAmount(strategy.spacing, 18),
-        orderSize: formatTokenAmount(strategy.orderSize, 18),
-        numOrders: strategy.numOrders.toString(),
-        strategyType: strategy.strategyType.toString(),
-        repostMode: strategy.repostMode.toString(),
-        budget: formatTokenAmount(strategy.budget, 18),
-        stopLoss: strategy.stopLoss > 0 ? formatTokenAmount(strategy.stopLoss, 18) : '0',
-        takeProfit: strategy.takeProfit > 0 ? formatTokenAmount(strategy.takeProfit, 18) : '0',
-        expiryTime: new Date(strategy.expiryTime * 1000).toISOString(),
-        isActive: strategy.isActive,
-        currentOrderIndex: strategy.currentOrderIndex.toString(),
-        totalFilled: formatTokenAmount(strategy.totalFilled, 18),
-        totalSpent: formatTokenAmount(strategy.totalSpent, 18),
-        flipToSell: strategy.flipToSell,
-        flipPercentage: strategy.flipPercentage.toString(),
-        flipSellActive: strategy.flipSellActive
+        makerAsset: strategy[0],
+        takerAsset: strategy[1],
+        startPrice: formatTokenAmount(strategy[2].toString(), 18),
+        spacing: strategy[3].toString(),
+        orderSize: formatTokenAmount(strategy[4].toString(), 18),
+        numOrders: strategy[5].toString(),
+        strategyType: strategy[6].toString(),
+        repostMode: strategy[7].toString(),
+        budget: formatTokenAmount(strategy[8].toString(), 6), // USDC has 6 decimals
+        stopLoss: strategy[9] > 0 ? formatTokenAmount(strategy[9].toString(), 18) : '0',
+        takeProfit: strategy[10] > 0 ? formatTokenAmount(strategy[10].toString(), 18) : '0',
+        expiryTime: new Date(Number(strategy[11]) * 1000).toISOString(),
+        isActive: strategy[12],
+        currentOrderIndex: strategy[13].toString(),
+        totalFilled: formatTokenAmount(strategy[14].toString(), 18),
+        totalSpent: formatTokenAmount(strategy[15].toString(), 6), // USDC has 6 decimals
+        flipToSell: strategy[16],
+        flipPercentage: strategy[17].toString(),
+        flipSellActive: strategy[18]
       };
 
     } catch (error) {
@@ -624,9 +655,11 @@ class ContractService {
         });
         
         console.log(`Found ${activeOrderIndices.length} active orders for bot ${botAddress}`);
+        console.log(`Active order indices:`, activeOrderIndices);
         
         const orders = [];
         for (const orderIndex of activeOrderIndices) {
+          console.log(`Processing order index: ${orderIndex}, type: ${typeof orderIndex}`);
           if (orderIndex > 0) {
             try {
               // Get individual order using Viem
@@ -637,12 +670,34 @@ class ContractService {
                 args: [orderIndex]
               });
               
+              // Add debugging to see what order data looks like
+              console.log(`Order ${orderIndex} data:`, order);
+              console.log(`Order ${orderIndex} type:`, typeof order);
+              console.log(`Order ${orderIndex} length:`, Array.isArray(order) ? order.length : 'Not an array');
+              
+              // Check if order data is valid
+              if (!order || !Array.isArray(order) || order.length < 4) {
+                console.error(`Invalid order data for order ${orderIndex}:`, order);
+                continue; // Skip this order and continue with others
+              }
+              
+              // Check if required fields exist and are not undefined
+              if (order[0] === undefined || order[1] === undefined || order[2] === undefined || order[3] === undefined) {
+                console.error(`Missing order data for order ${orderIndex}:`, {
+                  hash: order[0],
+                  price: order[1],
+                  isActive: order[2],
+                  createdAt: order[3]
+                });
+                continue; // Skip this order and continue with others
+              }
+              
               orders.push({
                 index: orderIndex.toString(),
-                hash: order.orderHash,
-                price: formatTokenAmount(order.price, 18),
-                isActive: order.isActive,
-                createdAt: new Date(order.createdAt * 1000).toISOString()
+                hash: order[0],
+                price: formatTokenAmount(order[1].toString(), 18),
+                isActive: order[2],
+                createdAt: new Date(Number(order[3]) * 1000).toISOString()
               });
             } catch (orderError) {
               console.error(`Error getting order ${orderIndex} for bot ${botAddress}:`, orderError);
@@ -675,12 +730,25 @@ class ContractService {
         args: [orderIndex]
       });
       
+      // Order is returned as an array: [orderHash, price, isActive, createdAt]
+      console.log(`Order ${orderIndex} data:`, order);
+      
+      // Check if order data is valid
+      if (!order || !Array.isArray(order) || order.length < 4) {
+        throw new Error(`Invalid order data for order ${orderIndex}: ${JSON.stringify(order)}`);
+      }
+      
+      // Check if required fields exist and are not undefined
+      if (order[0] === undefined || order[1] === undefined || order[2] === undefined || order[3] === undefined) {
+        throw new Error(`Missing order data for order ${orderIndex}: hash=${order[0]}, price=${order[1]}, isActive=${order[2]}, createdAt=${order[3]}`);
+      }
+      
       return {
         index: orderIndex.toString(),
-        hash: order.orderHash,
-        price: formatTokenAmount(order.price, 18),
-        isActive: order.isActive,
-        createdAt: new Date(order.createdAt * 1000).toISOString()
+        hash: order[0],
+        price: formatTokenAmount(order[1].toString(), 18),
+        isActive: order[2],
+        createdAt: new Date(Number(order[3]) * 1000).toISOString()
       };
     } catch (error) {
       console.error('Error getting order:', error);
@@ -692,6 +760,18 @@ class ContractService {
   async cancelOrder(botAddress, orderIndex) {
     try {
       console.log(`Cancelling order ${orderIndex} on bot:`, botAddress);
+
+      // First check if strategy is active
+      const strategy = await this.publicClient.readContract({
+        address: botAddress,
+        abi: CONTRACT_ABIS.bot,
+        functionName: 'strategy'
+      });
+
+      // Strategy is returned as an array, isActive is at index 12
+      if (!strategy[12]) {
+        throw new Error('Strategy is not active. Cannot cancel orders on an inactive strategy.');
+      }
 
       const { request } = await this.publicClient.simulateContract({
         address: botAddress,
@@ -712,7 +792,17 @@ class ContractService {
       };
     } catch (error) {
       console.error('Error cancelling order:', error);
-      throw new Error(`Failed to cancel order: ${error.message}`);
+      
+      // Provide more specific error messages
+      if (error.message.includes('StrategyNotActive') || error.message.includes('0x56a02da8')) {
+        throw new Error('Strategy is not active. Cannot cancel orders on an inactive strategy.');
+      } else if (error.message.includes('OrderNotFound')) {
+        throw new Error('Order not found. The order may have been already cancelled or filled.');
+      } else if (error.message.includes('OrderAlreadyCanceled')) {
+        throw new Error('Order has already been cancelled.');
+      } else {
+        throw new Error(`Failed to cancel order: ${error.message}`);
+      }
     }
   }
 
@@ -738,6 +828,18 @@ class ContractService {
     try {
       console.log('Cancelling all orders on bot:', botAddress);
 
+      // First check if strategy is active
+      const strategy = await this.publicClient.readContract({
+        address: botAddress,
+        abi: CONTRACT_ABIS.bot,
+        functionName: 'strategy'
+      });
+
+      // Strategy is returned as an array, isActive is at index 12
+      if (!strategy[12]) {
+        throw new Error('Strategy is not active. Cannot cancel orders on an inactive strategy.');
+      }
+
       const bot = this.userBots.get(botAddress) || createBotContract(botAddress, this.walletClient);
 
       // Simulate the transaction first
@@ -762,7 +864,92 @@ class ContractService {
 
     } catch (error) {
       console.error('Error cancelling orders:', error);
-      throw new Error(`Failed to cancel orders: ${error.message}`);
+      
+      // Provide more specific error messages
+      if (error.message.includes('StrategyNotActive') || error.message.includes('0x56a02da8')) {
+        throw new Error('Strategy is not active. Cannot cancel orders on an inactive strategy.');
+      } else {
+        throw new Error(`Failed to cancel orders: ${error.message}`);
+      }
+    }
+  }
+
+  // Cancel current strategy (by cancelling all orders)
+  async cancelStrategy(botAddress) {
+    try {
+      console.log('Cancelling strategy on bot:', botAddress);
+
+      // First check if strategy is expired
+      const strategy = await this.publicClient.readContract({
+        address: botAddress,
+        abi: CONTRACT_ABIS.bot,
+        functionName: 'strategy'
+      });
+
+      const currentTime = Math.floor(Date.now() / 1000);
+      const expiryTime = Number(strategy[11]); // expiryTime is at index 11
+      
+      console.log(`Strategy expiry check - Current time: ${currentTime}, Expiry time: ${expiryTime}`);
+      
+      if (currentTime > expiryTime) {
+        console.log('Strategy has expired. Attempting to force reset...');
+        
+        // For expired strategies, we need to create a new strategy to override the old one
+        // This is a workaround since there's no direct reset function
+        try {
+          // Try to create a minimal strategy to override the expired one
+          const { request } = await this.publicClient.simulateContract({
+            address: botAddress,
+            abi: CONTRACT_ABIS.bot,
+            functionName: 'createStrategy',
+            args: [
+              '0x0000000000000000000000000000000000000000', // makerAsset (ETH)
+              '0x0000000000000000000000000000000000000000', // takerAsset (ETH)
+              0n, // startPrice
+              0n, // spacing
+              0n, // orderSize
+              0n, // numOrders
+              0n, // strategyType
+              0n, // repostMode
+              0n, // budget
+              0n, // stopLoss
+              0n, // takeProfit
+              currentTime + 1, // expiryTime (1 second from now)
+              false, // flipToSell
+              0n // flipPercentage
+            ]
+          });
+          
+          const hash = await this.walletClient.writeContract(request);
+          const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+          
+          console.log('Expired strategy overridden successfully');
+          
+          return {
+            txHash: hash,
+            success: true,
+            message: 'Expired strategy was overridden'
+          };
+          
+        } catch (overrideError) {
+          console.error('Failed to override expired strategy:', overrideError);
+          throw new Error('Strategy has expired and cannot be cancelled. Please contact support.');
+        }
+      }
+
+      // For non-expired strategies, try normal cancellation
+      const cancelResult = await this.cancelAllOrders(botAddress);
+      
+      console.log('Strategy cancelled successfully');
+      
+      return {
+        txHash: cancelResult.txHash,
+        success: true
+      };
+
+    } catch (error) {
+      console.error('Error cancelling strategy:', error);
+      throw new Error(`Failed to cancel strategy: ${error.message}`);
     }
   }
 
@@ -796,10 +983,10 @@ class ContractService {
         console.log('Strategy performance retrieved successfully:', { totalFilled, totalSpent, profit });
         
         return {
-          totalFilled: formatTokenAmount(totalFilled, 18),
-          totalSpent: formatTokenAmount(totalSpent, 18),
-          profit: formatTokenAmount(profit, 18),
-          profitPercentage: totalSpent > 0 ? ((profit / totalSpent) * 100).toFixed(2) : '0'
+          totalFilled: formatTokenAmount(totalFilled.toString(), 18),
+          totalSpent: formatTokenAmount(totalSpent.toString(), 6), // USDC has 6 decimals
+          profit: formatTokenAmount(profit.toString(), 18),
+          profitPercentage: totalSpent > 0 ? ((Number(profit) / Number(totalSpent)) * 100).toFixed(2) : '0'
         };
       } catch (performanceError) {
         console.error(`Error getting strategy performance for bot ${botAddress}:`, performanceError);
@@ -905,17 +1092,61 @@ class ContractService {
     try {
       console.log(`Withdrawing ${amount} tokens from bot ${botAddress}`);
 
+      // Check if wallet client is properly set
+      if (!this.walletClient) {
+        throw new Error('Wallet client not initialized');
+      }
+
+      // Check if wallet client has an account
+      if (!this.walletClient.account) {
+        throw new Error('Wallet client account not available');
+      }
+
+      console.log('Wallet client account:', this.walletClient.account);
+      console.log('Wallet client address:', this.walletClient.address);
+
       const bot = this.userBots.get(botAddress) || createBotContract(botAddress, this.walletClient);
 
-      // Simulate the transaction first
-      const { request } = await this.publicClient.simulateContract({
-        address: botAddress,
-        abi: CONTRACT_ABIS.bot,
-        functionName: 'withdrawTokens',
-        args: [tokenAddress, amount]
-      });
+      let request;
+      
+      // Check if this is ETH withdrawal (zero address)
+      if (tokenAddress === '0x0000000000000000000000000000000000000000' || tokenAddress === 'ETH') {
+        console.log('Withdrawing ETH from bot');
+        
+        // Use withdrawETH function for native ETH
+        const { request: ethRequest } = await this.publicClient.simulateContract({
+          address: botAddress,
+          abi: CONTRACT_ABIS.bot,
+          functionName: 'withdrawETH',
+          args: [amount],
+          account: this.walletClient.account
+        });
+        
+        request = ethRequest;
+      } else {
+        console.log('Withdrawing ERC20 token from bot');
+        console.log('Bot address:', botAddress);
+        console.log('Token address:', tokenAddress);
+        console.log('Amount:', amount);
+        
+        // Use withdrawTokens function for ERC20 tokens
+        const { request: tokenRequest } = await this.publicClient.simulateContract({
+          address: botAddress,
+          abi: CONTRACT_ABIS.bot,
+          functionName: 'withdrawTokens',
+          args: [tokenAddress, amount],
+          account: this.walletClient.account
+        });
+        
+        request = tokenRequest;
+      }
 
       // Write the transaction
+      console.log('Wallet client account:', this.walletClient.account);
+      console.log('Wallet client address:', this.walletClient.address);
+      console.log('Request args:', request.args);
+      console.log('Request to:', request.address);
+      console.log('Request functionName:', request.functionName);
       const hash = await this.walletClient.writeContract(request);
       console.log('Withdrawal transaction:', hash);
 
@@ -937,34 +1168,54 @@ class ContractService {
   // Get bot balance
   async getBotBalance(botAddress, tokenAddress) {
     try {
-      const balance = await this.publicClient.readContract({
-        address: tokenAddress,
-        abi: [
-          { name: 'balanceOf', type: 'function', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view' }
-        ],
-        functionName: 'balanceOf',
-        args: [botAddress]
-      });
-
-      // Use hardcoded decimals for known tokens
-      let decimals;
-      if (tokenAddress.toLowerCase() === '0x036cbd53842c5426634e7929541ec2318f3dcf7e'.toLowerCase()) {
-        // USDC on Base Sepolia
-        decimals = 6;
-      } else if (tokenAddress.toLowerCase() === '0x4200000000000000000000000000000000000006'.toLowerCase()) {
-        // WETH on Base Sepolia
-        decimals = 18;
-      } else {
-        decimals = 18; // Default
-      }
-
-      // Convert balance to BigInt and format
-      const balanceBigInt = BigInt(balance);
-      const formattedBalance = formatUnits(balanceBigInt, decimals);
-      console.log('Bot balance (wei):', balance.toString());
-      console.log('Bot balance (formatted):', formattedBalance);
+      let balance;
       
-      return formattedBalance;
+      // Check if this is ETH balance (zero address)
+      if (tokenAddress === '0x0000000000000000000000000000000000000000' || tokenAddress === 'ETH') {
+        console.log('Getting ETH balance for bot');
+        
+        // Get native ETH balance
+        balance = await this.publicClient.getBalance({ address: botAddress });
+        console.log('Bot ETH balance (wei):', balance.toString());
+        
+        // Format ETH balance (18 decimals)
+        const formattedBalance = formatUnits(balance, 18);
+        console.log('Bot ETH balance (formatted):', formattedBalance);
+        
+        return formattedBalance;
+      } else {
+        console.log('Getting ERC20 token balance for bot');
+        
+        // Get ERC20 token balance
+        balance = await this.publicClient.readContract({
+          address: tokenAddress,
+          abi: [
+            { name: 'balanceOf', type: 'function', inputs: [{ name: 'account', type: 'address' }], outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view' }
+          ],
+          functionName: 'balanceOf',
+          args: [botAddress]
+        });
+
+        // Use hardcoded decimals for known tokens
+        let decimals;
+        if (tokenAddress.toLowerCase() === '0x036cbd53842c5426634e7929541ec2318f3dcf7e'.toLowerCase()) {
+          // USDC on Base Sepolia
+          decimals = 6;
+        } else if (tokenAddress.toLowerCase() === '0x4200000000000000000000000000000000000006'.toLowerCase()) {
+          // WETH on Base Sepolia
+          decimals = 18;
+        } else {
+          decimals = 18; // Default
+        }
+
+        // Convert balance to BigInt and format
+        const balanceBigInt = BigInt(balance);
+        const formattedBalance = formatUnits(balanceBigInt, decimals);
+        console.log('Bot token balance (wei):', balance.toString());
+        console.log('Bot token balance (formatted):', formattedBalance);
+        
+        return formattedBalance;
+      }
 
     } catch (error) {
       console.error('Error getting bot balance:', error);
@@ -1088,16 +1339,7 @@ class ContractService {
     try {
       console.log('Testing bot contract functionality...');
       
-      // Try to read owner
-      const owner = await this.publicClient.readContract({
-        address: botAddress,
-        abi: CONTRACT_ABIS.bot,
-        functionName: 'owner'
-      });
-      
-      console.log('Bot owner:', owner);
-      
-      // Try to read strategy info
+      // Try to read strategy info (this function exists)
       const strategy = await this.publicClient.readContract({
         address: botAddress,
         abi: CONTRACT_ABIS.bot,
@@ -1138,21 +1380,19 @@ class ContractService {
         });
         console.log('OrderManager address:', orderManagerAddress);
         
-        // Try to call a simple function on OrderManager
-        const orderManagerOwner = await this.publicClient.readContract({
-          address: orderManagerAddress,
-          abi: CONTRACT_ABIS.orderManager,
-          functionName: 'owner'
-        });
-        console.log('OrderManager owner:', orderManagerOwner);
-        
-        // Test OrderManager contract access
-        console.log('OrderManager contract access verified');
+        // Test OrderManager contract access by checking if it's a valid contract
+        const orderManagerCode = await this.publicClient.getBytecode({ address: orderManagerAddress });
+        if (orderManagerCode && orderManagerCode !== '0x') {
+          console.log('OrderManager contract access verified');
+        } else {
+          console.log('OrderManager contract not found');
+        }
       } catch (e) {
         console.log('OrderManager test failed:', e.message);
       }
       
-      return { owner, strategy };
+      console.log('✅ Bot contract test successful');
+      return { strategy };
     } catch (error) {
       console.error('Error testing bot contract:', error);
       throw error;
