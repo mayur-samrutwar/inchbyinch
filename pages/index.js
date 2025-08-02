@@ -10,6 +10,12 @@ import { useContractAddresses } from '../hooks/useContractAddresses';
 import { CONTRACT_ABIS } from '../utils/contracts.js';
 import { baseSepolia } from 'wagmi/chains';
 import { parseUnits } from 'viem';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { AlertTriangle, TrendingUp, Zap, Shield } from 'lucide-react';
+import Link from 'next/link';
 
 export default function Home() {
   // Wagmi hooks
@@ -285,7 +291,13 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative">
+      {/* Background Image */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: 'url(/bg.jpg)' }}
+      />
+
       <Head>
         <title>inchbyinch - Smart Ladder Trading</title>
         <meta name="description" content="Smart ladder trading automation on 1inch LOP" />
@@ -294,43 +306,30 @@ export default function Home() {
 
       <Navigation />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header */}
-        <div className="text-center mb-16">
-          {/* Current Price Display */}
-          <div className="inline-flex items-center space-x-4 p-4 bg-white rounded-lg shadow-sm border border-gray-200">
-            <span className="text-sm text-gray-500">Current ETH Price:</span>
-            <PriceDisplay symbol="ETH" size="lg" showChange={true} />
-          </div>
-        </div>
-
+      <main className="relative mx-auto px-4 sm:px-6 lg:px-8 mt-2 rounded-xl h-full">
         {/* Network Warning */}
         {isConnected && chainId !== baseSepolia.id && (
           <div className="max-w-4xl mx-auto mb-8">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">
-                    Wrong Network
-                  </h3>
-                  <p className="text-sm text-red-700 mt-1">
-                    Please switch to Base Sepolia testnet to use this app.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Please switch to Base Sepolia testnet to use this app.
+              </AlertDescription>
+            </Alert>
           </div>
         )}
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-1 gap-12">          
-          {/* Strategy Configuration */}
-          <div className="max-w-4xl mx-auto w-full">
+        {/* Main Content - Centered */}
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="w-full max-w-4xl text-center">
+            {/* Title Text
+            <div className="mb-12">
+              <h1 className="text-3xl font-bold text-white mb-4">
+                <span className="text-white">DeFi Trading</span>
+                <span className="bg-gradient-to-r from-black to-white bg-clip-text text-transparent"> Revolution</span>
+              </h1>
+            </div> */}
+
             <StrategyForm 
               onDeploy={deployStrategy} 
               isConnected={isConnected} 
@@ -342,12 +341,21 @@ export default function Home() {
         {/* Quick Access to Dashboard */}
         {isConnected && (
           <div className="mt-16 max-w-4xl mx-auto">
-            <div className="card p-8 text-center">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">View Your Active Orders</h2>
-              <p className="text-gray-600 mb-6">
-                Monitor your deployed strategies and active orders in the dashboard.
-              </p>
-            </div>
+            <Card className="text-center border-0 shadow-lg bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="text-2xl">View Your Active Orders</CardTitle>
+                <CardDescription>
+                  Monitor your deployed strategies and active orders in the dashboard.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+                  <Link href="/dashboard">
+                    Go to Dashboard
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         )}
       </main>

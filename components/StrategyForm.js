@@ -693,7 +693,7 @@ export default function StrategyForm({ onDeploy, isConnected, onConfigChange }) 
   };
 
   return (
-    <div className="card p-8">
+    <div className="bg-black rounded-4xl p-8 shadow-lg">
       {renderStepIndicator()}
       
       {renderStepContent()}
