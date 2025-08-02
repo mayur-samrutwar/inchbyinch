@@ -322,14 +322,6 @@ export default function Home() {
         {/* Main Content - Centered */}
         <div className="flex items-center justify-center min-h-screen">
           <div className="w-full max-w-4xl text-center">
-            {/* Title Text
-            <div className="mb-12">
-              <h1 className="text-3xl font-bold text-white mb-4">
-                <span className="text-white">DeFi Trading</span>
-                <span className="bg-gradient-to-r from-black to-white bg-clip-text text-transparent"> Revolution</span>
-              </h1>
-            </div> */}
-
             <StrategyForm 
               onDeploy={deployStrategy} 
               isConnected={isConnected} 
