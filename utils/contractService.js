@@ -72,116 +72,140 @@ class ContractService {
     return this.walletClient !== null;
   }
 
-  // Deploy a new bot
-  async deployBot(userAddress) {
+  // Fund a bot with ETH for gas
+  async fundBot(botAddress, amount) {
     try {
-      console.log('Deploying bot for user:', userAddress);
-
-      // Get contract addresses for the current network
-      const chainId = await this.publicClient.getChainId();
-      const contractAddresses = getContractAddressesForNetwork(chainId);
+      console.log('Funding bot with ETH:', botAddress, amount);
       
-      // Create network config with contracts
-      const networkConfigWithContracts = {
-        ...this.currentNetwork,
-        contracts: contractAddresses
-      };
-
-      const factory = createFactoryContract(this.walletClient, networkConfigWithContracts);
-
-      // First, check if user already has bots
-      const existingBots = await this.publicClient.readContract({
-        address: contractAddresses.factory,
-        abi: CONTRACT_ABIS.factory,
-        functionName: 'getUserBots',
-        args: [userAddress]
-      });
-
-      console.log('Existing bots for user:', existingBots);
-
-      if (existingBots.length > 0) {
-        // User has existing bots, use the first one
-        const botAddress = existingBots[0];
-        console.log('Using existing bot:', botAddress);
-        
-        return {
-          botAddress,
-          txHash: null, // No new transaction
-          isExisting: true
-        };
-      }
-
-      // Deploy new bot using Viem
       const { request } = await this.publicClient.simulateContract({
-        address: contractAddresses.factory,
-        abi: CONTRACT_ABIS.factory,
-        functionName: 'deployBot',
-        args: [userAddress],
-        value: parseEther('0.001') // MIN_DEPOSIT
+        address: this.factory.address,
+        abi: this.factory.abi,
+        functionName: 'fundBot',
+        args: [botAddress],
+        value: parseEther(amount.toString())
       });
 
       const hash = await this.walletClient.writeContract(request);
-      console.log('Bot deployment transaction:', hash);
-
-      // Wait for confirmation
+      console.log('Bot funding transaction:', hash);
+      
       const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
-      console.log('Bot deployed successfully:', receipt);
+      console.log('Bot funded successfully:', receipt);
+      
+      return {
+        txHash: hash,
+        botAddress: botAddress,
+        amount: amount
+      };
+    } catch (error) {
+      console.error('Failed to fund bot:', error);
+      throw new Error(`Failed to fund bot: ${error.message}`);
+    }
+  }
 
-      // Get the deployed bot address from the event
-      const event = receipt.logs.find(log => {
-        try {
-          return log.topics[0] === '0x...'; // BotDeployed event signature
-        } catch {
-          return false;
+  // Deploy a new bot
+  async deployBot(userAddress) {
+    try {
+      console.log("Deploying bot for user:", userAddress);
+      
+      // Check if user already has bots
+      const existingBots = await this.getUserBots(userAddress);
+      console.log("Existing bots for user:", existingBots);
+      
+      // If user has existing bots, use the first one
+      if (existingBots && existingBots.length > 0) {
+        console.log("✅ Using existing bot:", existingBots[0]);
+        return {
+          botAddress: existingBots[0],
+          txHash: null,
+          isExisting: true,
+          message: `Using existing bot: ${existingBots[0]}`
+        };
+      }
+      
+      // Required funding: 0.0005 ETH for bot gas (matches contract constant)
+      const requiredFunding = parseEther('0.0005'); // BOT_GAS_FUNDING
+      
+      // First, try to check if the user is the factory owner
+      try {
+        const factoryOwner = await this.publicClient.readContract({
+          address: this.factory.address,
+          abi: this.factory.abi,
+          functionName: 'owner'
+        });
+        console.log("Factory owner:", factoryOwner);
+        console.log("User address:", userAddress);
+        
+        if (factoryOwner.toLowerCase() === userAddress.toLowerCase()) {
+          console.log("User is factory owner - proceeding with deployBot");
+        } else {
+          console.log("User is NOT factory owner - this might cause issues");
         }
+      } catch (error) {
+        console.log("Could not check factory owner:", error.message);
+      }
+      
+      // Try the deployment
+      const { request } = await this.publicClient.simulateContract({
+        address: this.factory.address,
+        abi: this.factory.abi,
+        functionName: 'deployBot',
+        args: [userAddress],
+        value: requiredFunding
       });
 
-      let botAddress;
-      if (event) {
-        // Extract bot address from event
-        botAddress = '0x' + event.topics[2].slice(26); // Remove padding
-      } else {
-        // Fallback: get the latest bot for the user
-        const updatedBots = await this.publicClient.readContract({
-          address: contractAddresses.factory,
-          abi: CONTRACT_ABIS.factory,
-          functionName: 'getUserBots',
-          args: [userAddress]
-        });
-        botAddress = updatedBots[updatedBots.length - 1];
-      }
-
-      return {
-        botAddress,
-        txHash: hash,
-        isExisting: false
-      };
-
-    } catch (error) {
-      console.error('Error deploying bot:', error);
+      const hash = await this.walletClient.writeContract(request);
+      console.log("Bot deployment transaction:", hash);
       
-      // Check if it's a user limit exceeded error
-      if (error.message.includes('UserLimitExceeded')) {
-        // Get existing bots and suggest using one
-        try {
-          const chainId = await this.publicClient.getChainId();
-          const contractAddresses = getContractAddressesForNetwork(chainId);
-          
-          const existingBots = await this.publicClient.readContract({
-            address: contractAddresses.factory,
-            abi: CONTRACT_ABIS.factory,
-            functionName: 'getUserBots',
-            args: [userAddress]
-          });
-          
-          if (existingBots.length > 0) {
-            throw new Error(`You have reached the maximum limit of 10 bots. You can use one of your existing bots: ${existingBots.join(', ')}`);
-          }
-        } catch (getBotsError) {
-          console.error('Error getting existing bots:', getBotsError);
-        }
+      const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+      console.log("Bot deployed successfully:", receipt);
+      
+      // Extract bot address from event logs
+      let botAddress = null;
+      try {
+        // Look for BotDeployed event
+        const botDeployedEvent = receipt.logs.find(log => {
+          // BotDeployed event signature: BotDeployed(address indexed user, address indexed bot)
+          return log.topics[0] === '0x8f678cca00000000000000000000000000000000000000000000000000000000';
+        });
         
-        throw new Error('You have reached the maximum limit of 10 bots. Please use an existing bot or contact support.');
+        if (botDeployedEvent) {
+          // Extract bot address from the second indexed parameter
+          botAddress = '0x' + botDeployedEvent.topics[2].slice(26);
+          console.log("✅ Bot address extracted from event:", botAddress);
+        } else {
+          console.log("❌ BotDeployed event not found in logs");
+          // Fallback: get the latest bot for the user
+          const userBots = await this.getUserBots(userAddress);
+          if (userBots && userBots.length > 0) {
+            botAddress = userBots[userBots.length - 1];
+            console.log("✅ Using latest user bot as fallback:", botAddress);
+          }
+        }
+      } catch (error) {
+        console.log("❌ Error extracting bot address from logs:", error.message);
+        // Fallback: get the latest bot for the user
+        const userBots = await this.getUserBots(userAddress);
+        if (userBots && userBots.length > 0) {
+          botAddress = userBots[userBots.length - 1];
+          console.log("✅ Using latest user bot as fallback:", botAddress);
+        }
+      }
+      
+      if (!botAddress) {
+        throw new Error("Could not determine bot address from deployment");
+      }
+      
+      return {
+        txHash: hash,
+        botAddress: botAddress
+      };
+    } catch (error) {
+      console.error("Error deploying bot:", error);
+      
+      // Check if it's an ownership error
+      if (error.message.includes("OwnableUnauthorizedAccount")) {
+        console.log("Factory ownership issue detected");
+        throw new Error("Factory ownership issue detected. The deployed Factory contract has an 'onlyOwner' modifier that prevents bot deployment. Please contact support or wait for a contract redeployment.");
       }
       
       throw new Error(`Failed to deploy bot: ${error.message}`);
@@ -464,8 +488,8 @@ class ContractService {
       
       console.log('Raw bot addresses from factory:', botAddresses);
       
-      // Create bot instances for each address
-      const bots = [];
+      // Return just the address strings, but also create bot instances for internal use
+      const validAddresses = [];
       for (const botAddress of botAddresses) {
         if (botAddress !== '0x0000000000000000000000000000000000000000') { // Zero address check
           try {
@@ -476,12 +500,12 @@ class ContractService {
               continue;
             }
             
+            // Create bot instance for internal use
             const bot = createBotContract(botAddress, this.walletClient);
             this.userBots.set(botAddress, bot);
-            bots.push({
-              address: botAddress,
-              instance: bot
-            });
+            
+            // Add to valid addresses list
+            validAddresses.push(botAddress);
             
             console.log(`Bot found: ${botAddress}`);
           } catch (botError) {
@@ -491,8 +515,8 @@ class ContractService {
         }
       }
 
-      console.log(`Found ${bots.length} bots for user`);
-      return bots;
+      console.log(`Found ${validAddresses.length} bots for user`);
+      return validAddresses; // Return just the address strings
 
     } catch (error) {
       console.error('Error getting user bots:', error);
@@ -980,6 +1004,85 @@ class ContractService {
     }
   }
 
+  // Withdraw ETH from factory
+  async withdrawETHFromFactory(amount) {
+    try {
+      console.log(`Withdrawing ${amount} ETH from factory`);
+
+      // Simulate the transaction first
+      const { request } = await this.publicClient.simulateContract({
+        address: this.factory.address,
+        abi: this.factory.abi,
+        functionName: 'withdrawETH',
+        args: [amount]
+      });
+
+      // Write the transaction
+      const hash = await this.walletClient.writeContract(request);
+      console.log('Factory ETH withdrawal transaction:', hash);
+
+      // Wait for confirmation
+      const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+      console.log('Factory ETH withdrawal successful:', receipt);
+
+      return {
+        txHash: hash,
+        amount: amount.toString()
+      };
+
+    } catch (error) {
+      console.error('Error withdrawing ETH from factory:', error);
+      throw new Error(`Failed to withdraw ETH from factory: ${error.message}`);
+    }
+  }
+
+  // Withdraw tokens from factory
+  async withdrawTokensFromFactory(tokenAddress, amount) {
+    try {
+      console.log(`Withdrawing ${amount} tokens from factory`);
+
+      // Simulate the transaction first
+      const { request } = await this.publicClient.simulateContract({
+        address: this.factory.address,
+        abi: this.factory.abi,
+        functionName: 'withdrawTokens',
+        args: [tokenAddress, amount]
+      });
+
+      // Write the transaction
+      const hash = await this.walletClient.writeContract(request);
+      console.log('Factory token withdrawal transaction:', hash);
+
+      // Wait for confirmation
+      const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+      console.log('Factory token withdrawal successful:', receipt);
+
+      return {
+        txHash: hash,
+        amount: amount.toString()
+      };
+
+    } catch (error) {
+      console.error('Error withdrawing tokens from factory:', error);
+      throw new Error(`Failed to withdraw tokens from factory: ${error.message}`);
+    }
+  }
+
+  // Get factory ETH balance
+  async getFactoryETHBalance() {
+    try {
+      const balance = await this.publicClient.getBalance({
+        address: this.factory.address
+      });
+
+      return formatEther(balance);
+
+    } catch (error) {
+      console.error('Error getting factory ETH balance:', error);
+      throw new Error(`Failed to get factory ETH balance: ${error.message}`);
+    }
+  }
+
   // Test bot contract functionality
   async testBotContract(botAddress) {
     try {
@@ -1060,6 +1163,18 @@ class ContractService {
   async transferTokensToBot(botAddress, tokenAddress, amount, userAddress) {
     try {
       console.log('Transferring tokens to bot:', tokenAddress, amount);
+      console.log('botAddress received:', botAddress);
+      console.log('botAddress type:', typeof botAddress);
+      console.log('botAddress stringified:', JSON.stringify(botAddress));
+
+      // Validate botAddress
+      if (!botAddress || typeof botAddress !== 'string') {
+        throw new Error(`Invalid bot address: ${botAddress}. Expected a string address.`);
+      }
+      
+      if (!botAddress.startsWith('0x') || botAddress.length !== 42) {
+        throw new Error(`Invalid bot address format: ${botAddress}. Expected a valid 20-byte hex address.`);
+      }
 
       // Create ERC20 contract instance
       const erc20Abi = [

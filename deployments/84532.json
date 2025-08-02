@@ -1,0 +1,15 @@
+{
+  "network": "baseSepolia",
+  "chainId": "84532",
+  "deployer": "0xAF58823a02d830a8C253Ee10e2C00Bc3793444Ce",
+  "contracts": {
+    "orderManager": "0xE1d570B883590e9e7608461858Cd574Cbe1b6CFc",
+    "oracleAdapter": "0xB8652C63eafa5E5aE20B32e8A2A3483c7f40ad2A",
+    "lopAdapter": "0xE61B109A32EB2afB6Ed6F728cE3c3626C4a2cFf3",
+    "botImplementation": "0x3276a01D3B76Baf28223E74470e65eb1B93f969f",
+    "factory": "0x568BCfe4D946504b66d0C025854625733c13AF48",
+    "lop": "0xbDAf036e9c47A7215130158bd614010E2BCffd38",
+    "mockLop": "0xbDAf036e9c47A7215130158bd614010E2BCffd38"
+  },
+  "timestamp": "2025-08-01T23:50:21.642Z"
+}

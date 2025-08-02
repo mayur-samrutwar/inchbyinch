@@ -78,15 +78,15 @@ export default function Dashboard() {
       let totalVolume = 0;
       let totalProfit = 0;
 
-      for (const bot of userBots) {
+      for (const botAddress of userBots) {
         try {
-          console.log(`Processing bot: ${bot.address}`);
+          console.log(`Processing bot: ${botAddress}`);
           
-          const botOrders = await contractService.getBotOrders(bot.address);
-          console.log(`Found ${botOrders.length} orders for bot ${bot.address}`);
+          const botOrders = await contractService.getBotOrders(botAddress);
+          console.log(`Found ${botOrders.length} orders for bot ${botAddress}`);
           
-          const botStrategy = await contractService.getBotStrategy(bot.address);
-          console.log(`Strategy for bot ${bot.address}:`, botStrategy);
+          const botStrategy = await contractService.getBotStrategy(botAddress);
+          console.log(`Strategy for bot ${botAddress}:`, botStrategy);
           
           // Transform orders to match UI format
           const transformedOrders = botOrders.map(order => ({
@@ -97,7 +97,7 @@ export default function Dashboard() {
             status: order.isActive ? 'Active' : 'Filled',
             timestamp: new Date(order.createdAt).toLocaleString(),
             txHash: order.hash.substring(0, 10) + '...' + order.hash.substring(order.hash.length - 8),
-            botAddress: bot.address
+            botAddress: botAddress
           }));
           
           allOrders.push(...transformedOrders);
@@ -116,20 +116,20 @@ export default function Dashboard() {
 
             // Get strategy performance
             try {
-              const performance = await contractService.getStrategyPerformance(bot.address);
+              const performance = await contractService.getStrategyPerformance(botAddress);
               totalProfit += parseFloat(performance.profit);
               
               // Store performance data for display
               setStrategyPerformance(prev => ({
                 ...prev,
-                [bot.address]: {
+                [botAddress]: {
                   ...performance,
                   strategy: botStrategy
                 }
               }));
               
               // Update strategy info with performance data
-              console.log(`Strategy performance for ${bot.address}:`, {
+              console.log(`Strategy performance for ${botAddress}:`, {
                 totalFilled: performance.totalFilled,
                 totalSpent: performance.totalSpent,
                 profit: performance.profit,
@@ -139,10 +139,10 @@ export default function Dashboard() {
               console.error('Error getting performance:', error);
             }
           } else {
-            console.log(`Bot ${bot.address} is not active (no strategy created)`);
+            console.log(`Bot ${botAddress} is not active (no strategy created)`);
           }
         } catch (error) {
-          console.error(`Error loading orders for bot ${bot.address}:`, error);
+          console.error(`Error loading orders for bot ${botAddress}:`, error);
           // Continue with other bots
         }
       }
@@ -187,24 +187,24 @@ export default function Dashboard() {
       const userBots = await contractService.getUserBots(address);
       const balances = {};
 
-      for (const bot of userBots) {
+      for (const botAddress of userBots) {
         try {
           // Get ETH balance
-          const ethBalance = await publicClient.getBalance({ address: bot.address });
-          balances[bot.address] = {
+          const ethBalance = await publicClient.getBalance({ address: botAddress });
+          balances[botAddress] = {
             ETH: formatEther(ethBalance),
             USDC: '0' // Will be updated if USDC contract is available
           };
 
           // Try to get USDC balance if contract exists (Base Sepolia USDC)
           try {
-            const usdcBalance = await contractService.getBotBalance(bot.address, '0x036cbd53842c5426634e7929541ec2318f3dcf7e'); // Real Base Sepolia USDC
-            balances[bot.address].USDC = usdcBalance;
+            const usdcBalance = await contractService.getBotBalance(botAddress, '0x036cbd53842c5426634e7929541ec2318f3dcf7e'); // Real Base Sepolia USDC
+            balances[botAddress].USDC = usdcBalance;
           } catch (error) {
             console.log('USDC not available for this bot');
           }
         } catch (error) {
-          console.error(`Error getting balance for bot ${bot.address}:`, error);
+          console.error(`Error getting balance for bot ${botAddress}:`, error);
         }
       }
 
@@ -213,6 +213,8 @@ export default function Dashboard() {
       console.error('Error loading bot balances:', error);
     }
   }, [isConnected, walletClient, address, publicClient]);
+
+
 
   // Handle withdrawal
   const handleWithdraw = async (botAddress, token, amount) => {
@@ -237,6 +239,8 @@ export default function Dashboard() {
       setWithdrawing(false);
     }
   };
+
+
 
   useEffect(() => {
     if (isConnected && walletClient && address) {
@@ -499,6 +503,8 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+
       </main>
     </div>
   );

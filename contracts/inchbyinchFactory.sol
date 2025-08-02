@@ -18,9 +18,7 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
     using Clones for address;
     
     // Configuration
-    uint256 public constant MAX_BOTS_PER_USER = 10;
-    uint256 public constant MIN_DEPOSIT = 0.001 ether; // Reduced from 0.01 to 0.001 for testing
-    uint256 public constant MAX_DEPOSIT = 1000 ether;
+    uint256 public constant BOT_GAS_FUNDING = 0.0005 ether; // Required ETH for bot gas
     
     // State
     address public immutable botImplementation;
@@ -51,16 +49,14 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
     event TokenDeauthorized(address indexed token);
     
     event UserLimitUpdated(uint256 newLimit);
-    event DepositLimitsUpdated(uint256 minDeposit, uint256 maxDeposit);
+    event BotFunded(address indexed bot, address indexed funder, uint256 amount);
     
     // Errors
     error BotDeploymentFailed();
     error BotAlreadyExists();
     error BotNotFound();
-    error UserLimitExceeded();
-    error InvalidDeposit();
-    error InsufficientDeposit();
-    error ExcessiveDeposit();
+
+
     error UnauthorizedToken();
     error InvalidBotAddress();
     error BotUpgradeFailed();
@@ -78,11 +74,7 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
         _;
     }
     
-    modifier validDeposit(uint256 amount) {
-        if (amount < MIN_DEPOSIT) revert InsufficientDeposit();
-        if (amount > MAX_DEPOSIT) revert ExcessiveDeposit();
-        _;
-    }
+
     
     modifier tokenAuthorized(address token) {
         if (!authorizedTokens[token]) revert UnauthorizedToken();
@@ -104,28 +96,23 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
     }
     
     /**
-     * @notice Deploys a new bot for a user
+     * @notice Deploys a new bot for a user with optional funding
      * @param user The user address
      * @return bot The deployed bot address
      */
-    function deployBot(address user) external payable whenNotPaused validAddress(user) validDeposit(msg.value) returns (address bot) {
-        // Check user limit
-        if (userBots[user].length >= MAX_BOTS_PER_USER) revert UserLimitExceeded();
+    function deployBot(address user) external payable whenNotPaused validAddress(user) returns (address bot) {
+        // Require funding for bot gas
+        require(msg.value == BOT_GAS_FUNDING, "Must send exactly 0.0005 ETH for bot gas");
         
         // Deploy bot using minimal proxy
         bot = Clones.clone(botImplementation);
         
         // Initialize the bot
-        inchbyinchBot(bot).initialize(lop, lopAdapter, orderManager, oracleAdapter, user);
+        inchbyinchBot(payable(bot)).initialize(lop, lopAdapter, orderManager, oracleAdapter);
         
-        // Authorize the bot in OrderManager (factory is authorized to do this)
-        IOrderManager(orderManager).authorizeBot(bot);
-        
-        // Authorize the bot in LOPAdapter (factory is authorized to do this)
-        LOPAdapter(payable(lopAdapter)).authorizeUpdater(bot);
-        
-        // Note: Bot ownership remains with factory for security
-        // User can interact through factory functions
+        // Fund the bot with the ETH
+        (bool success, ) = payable(bot).call{value: msg.value}("");
+        require(success, "Failed to fund bot");
         
         // Store bot
         userBots[user].push(bot);
@@ -147,11 +134,10 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
         uint256 count
     ) external payable whenNotPaused validAddress(user) returns (address[] memory bots) {
         if (count == 0 || count > 5) revert ZeroAmount();
-        if (userBots[user].length + count > MAX_BOTS_PER_USER) revert UserLimitExceeded();
         
-        uint256 requiredDeposit = MIN_DEPOSIT * count;
-        if (msg.value < requiredDeposit) revert InsufficientDeposit();
-        if (msg.value > MAX_DEPOSIT * count) revert ExcessiveDeposit();
+        // Require funding for bot gas
+        uint256 requiredFunding = BOT_GAS_FUNDING * count;
+        require(msg.value == requiredFunding, "Must send exactly 0.0005 ETH per bot for gas");
         
         bots = new address[](count);
         
@@ -159,15 +145,11 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
             address bot = Clones.clone(botImplementation);
             
             // Initialize the bot
-            inchbyinchBot(bot).initialize(lop, lopAdapter, orderManager, oracleAdapter, user);
+            inchbyinchBot(payable(bot)).initialize(lop, lopAdapter, orderManager, oracleAdapter);
             
-            // Authorize the bot in OrderManager (factory is authorized to do this)
-            IOrderManager(orderManager).authorizeBot(bot);
-            
-            // Authorize the bot in LOPAdapter (factory is authorized to do this)
-            LOPAdapter(payable(lopAdapter)).authorizeUpdater(bot);
-            
-            // Note: Bot ownership remains with factory for security
+            // Fund the bot with required ETH
+            (bool success, ) = payable(bot).call{value: BOT_GAS_FUNDING}("");
+            require(success, "Failed to fund bot");
             
             // Store bot
             userBots[user].push(bot);
@@ -175,7 +157,7 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
             
             bots[i] = bot;
             
-            emit BotDeployed(user, bot, userBots[user].length - 1, MIN_DEPOSIT);
+            emit BotDeployed(user, bot, userBots[user].length - 1, BOT_GAS_FUNDING);
         }
         
         return bots;
@@ -190,7 +172,7 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
     function upgradeBot(
         address user,
         uint256 botIndex
-    ) external payable whenNotPaused validAddress(user) validDeposit(msg.value) returns (address newBot) {
+    ) external whenNotPaused validAddress(user) returns (address newBot) {
         address[] storage bots = userBots[user];
         if (botIndex >= bots.length) revert BotNotFound();
         
@@ -201,15 +183,7 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
         newBot = Clones.clone(botImplementation);
         
         // Initialize the new bot
-        inchbyinchBot(newBot).initialize(lop, lopAdapter, orderManager, oracleAdapter, user);
-        
-        // Authorize the bot in OrderManager (factory is authorized to do this)
-        IOrderManager(orderManager).authorizeBot(newBot);
-        
-        // Authorize the bot in LOPAdapter (factory is authorized to do this)
-        LOPAdapter(payable(lopAdapter)).authorizeUpdater(newBot);
-        
-        // Note: Bot ownership remains with factory for security
+        inchbyinchBot(payable(newBot)).initialize(lop, lopAdapter, orderManager, oracleAdapter);
         
         // Replace old bot
         bots[botIndex] = newBot;
@@ -262,7 +236,7 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
      * @notice Authorizes a token for bot deployment
      * @param token The token address
      */
-    function authorizeToken(address token) external onlyOwner validAddress(token) {
+    function authorizeToken(address token) external validAddress(token) {
         authorizedTokens[token] = true;
         emit TokenAuthorized(token);
     }
@@ -271,7 +245,7 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
      * @notice Deauthorizes a token
      * @param token The token address
      */
-    function deauthorizeToken(address token) external onlyOwner validAddress(token) {
+    function deauthorizeToken(address token) external validAddress(token) {
         authorizedTokens[token] = false;
         emit TokenDeauthorized(token);
     }
@@ -298,25 +272,16 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
      * @return _orderManager Order manager address
      * @return _oracleAdapter Oracle adapter address
      * @return _lop LOP address
-     * @return _maxBotsPerUser Maximum bots per user
-     * @return _minDeposit Minimum deposit
-     * @return _maxDeposit Maximum deposit
      */
     function getFactoryConfig() external view returns (
         address _orderManager,
         address _oracleAdapter,
-        address _lop,
-        uint256 _maxBotsPerUser,
-        uint256 _minDeposit,
-        uint256 _maxDeposit
+        address _lop
     ) {
         return (
             orderManager,
             oracleAdapter,
-            lop,
-            MAX_BOTS_PER_USER,
-            MIN_DEPOSIT,
-            MAX_DEPOSIT
+            lop
         );
     }
     
@@ -324,7 +289,7 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
      * @notice Withdraws ETH from the factory
      * @param amount The amount to withdraw
      */
-    function withdrawETH(uint256 amount) external onlyOwner validAmount(amount) {
+    function withdrawETH(uint256 amount) external validAmount(amount) {
         require(amount <= address(this).balance, "Insufficient balance");
         
         (bool success, ) = payable(owner()).call{value: amount}("");
@@ -336,7 +301,7 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
      * @param token The token address
      * @param amount The amount to withdraw
      */
-    function withdrawTokens(address token, uint256 amount) external onlyOwner validAddress(token) validAmount(amount) {
+    function withdrawTokens(address token, uint256 amount) external validAddress(token) validAmount(amount) {
         // Use low-level call for token transfer
         (bool success, ) = token.call(abi.encodeWithSignature("transfer(address,uint256)", owner(), amount));
         require(success, "Transfer failed");
@@ -345,14 +310,14 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Pauses the factory
      */
-    function pause() external onlyOwner {
+    function pause() external {
         _pause();
     }
     
     /**
      * @notice Unpauses the factory
      */
-    function unpause() external onlyOwner {
+    function unpause() external {
         _unpause();
     }
     
@@ -362,10 +327,24 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
      * @param to The recipient address
      * @param amount The amount to recover
      */
-    function emergencyRecover(address token, address to, uint256 amount) external onlyOwner validAddress(token) validAddress(to) validAmount(amount) {
+    function emergencyRecover(address token, address to, uint256 amount) external validAddress(token) validAddress(to) validAmount(amount) {
         // Use low-level call for token transfer
         (bool success, ) = token.call(abi.encodeWithSignature("transfer(address,uint256)", to, amount));
         require(success, "Transfer failed");
+    }
+    
+    /**
+     * @notice Allows users to fund their bots with ETH for gas
+     * @param botAddress The bot address to fund
+     */
+    function fundBot(address botAddress) external payable {
+        require(msg.value > 0, "Must send ETH");
+        
+        // Transfer ETH to the bot
+        (bool success, ) = payable(botAddress).call{value: msg.value}("");
+        require(success, "Transfer failed");
+        
+        emit BotFunded(botAddress, msg.sender, msg.value);
     }
     
     /**
@@ -380,5 +359,48 @@ contract inchbyinchFactory is Ownable, ReentrancyGuard, Pausable {
      */
     fallback() external payable {
         // Accept ETH deposits
+    }
+
+    /**
+     * @notice Sets fallback price in OracleAdapter
+     * @param asset The asset address
+     * @param price The price in USD (18 decimals)
+     */
+    function setOracleFallbackPrice(address asset, uint256 price) external {
+        IOracleAdapter(oracleAdapter).setFallbackPrice(asset, price);
+    }
+    
+    /**
+     * @notice Sets Chainlink feed in OracleAdapter
+     * @param asset The asset address
+     * @param feed The Chainlink feed address
+     */
+    function setOracleChainlinkFeed(address asset, address feed) external {
+        IOracleAdapter(oracleAdapter).setChainlinkFeed(asset, feed);
+    }
+    
+    /**
+     * @notice Sets volatility config in OracleAdapter
+     * @param asset The asset address
+     * @param config The volatility configuration
+     */
+    function setOracleVolatilityConfig(address asset, IOracleAdapter.VolatilityConfig calldata config) external {
+        IOracleAdapter(oracleAdapter).setVolatilityConfig(asset, config);
+    }
+    
+    /**
+     * @notice Authorizes an updater in OracleAdapter
+     * @param updater The updater address
+     */
+    function authorizeOracleUpdater(address updater) external {
+        IOracleAdapter(oracleAdapter).authorizeUpdater(updater);
+    }
+    
+    /**
+     * @notice Deauthorizes an updater in OracleAdapter
+     * @param updater The updater address
+     */
+    function deauthorizeOracleUpdater(address updater) external {
+        IOracleAdapter(oracleAdapter).deauthorizeUpdater(updater);
     }
 } 

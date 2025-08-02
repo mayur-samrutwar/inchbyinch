@@ -104,4 +104,37 @@ interface IOracleAdapter {
      * @return changePercent The price change percentage
      */
     function getPriceChangePercent(address asset, uint256 timeframe) external view returns (int256 changePercent);
+    
+    /**
+     * @notice Sets a fallback price for an asset (when Chainlink is not available)
+     * @param asset The asset address
+     * @param price The price in USD (18 decimals)
+     */
+    function setFallbackPrice(address asset, uint256 price) external;
+    
+    /**
+     * @notice Sets a Chainlink price feed for an asset
+     * @param asset The asset address
+     * @param feed The Chainlink feed address
+     */
+    function setChainlinkFeed(address asset, address feed) external;
+    
+    /**
+     * @notice Gets the Chainlink feed address for an asset
+     * @param asset The asset address
+     * @return feed The Chainlink feed address
+     */
+    function getChainlinkFeed(address asset) external view returns (address feed);
+    
+    /**
+     * @notice Authorizes an address to update prices
+     * @param updater The address to authorize
+     */
+    function authorizeUpdater(address updater) external;
+    
+    /**
+     * @notice Deauthorizes an address
+     * @param updater The address to deauthorize
+     */
+    function deauthorizeUpdater(address updater) external;
 } 

@@ -130,8 +130,14 @@ export default function Home() {
         
         // Budget is already in USDC units from the form, convert to wei
         const usdcAmount = parseUnits(contractParams.budget, 6); // USDC has 6 decimals
+        
+        // Debug: Check what botAddress actually is
+        console.log('botDeployment:', botDeployment);
+        console.log('botDeployment.botAddress:', botDeployment.botAddress);
+        console.log('botDeployment.botAddress type:', typeof botDeployment.botAddress);
+        
         await contractService.transferTokensToBot(
-          botDeployment.botAddress,
+          botDeployment.botAddress, // This should be a string address
           contractParams.takerAsset, // USDC
           usdcAmount,
           address
@@ -171,10 +177,10 @@ export default function Home() {
           
           // Fallback: Use hardcoded addresses for Base Sepolia
           const fallbackAddresses = {
-            factory: '0xD57be8f04cdd21A056bc32f1d26DAc62fB44747A',
-            orderManager: '0x88705edFCFd3A55598D071791A2096AC1683036d',
-            oracleAdapter: '0xefBAa35F4364933ddD6a66d59e35e9A1Ec19bC46',
-            lopAdapter: '0xf7B94C39082113C2FDF63D8997fdf767f0BA15E8'
+            factory: '0x58C39262728e96BA47B6C0B6F9258121b5DFd8E5',
+            orderManager: '0x03b902DAa3d882C2C9e14dA96B69D3136EEBa65a',
+            oracleAdapter: '0x55C484B25700aC5d169298E6fbe4169fca660E45',
+            lopAdapter: '0x66Fd08dA331790b28A056CB0887ECfE6502f046E'
           };
           
           console.log('Using fallback addresses:', fallbackAddresses);
@@ -226,9 +232,11 @@ export default function Home() {
       const orderPlacement = await contractService.placeLadderOrders(botDeployment.botAddress);
       console.log('Orders placed:', orderPlacement.txHash);
 
-      const botMessage = botDeployment.isExisting 
-        ? `Using existing bot: ${botDeployment.botAddress}`
-        : `New bot deployed: ${botDeployment.botAddress}`;
+      const botMessage = botDeployment.message 
+        ? botDeployment.message
+        : botDeployment.isExisting 
+          ? `Using existing bot: ${botDeployment.botAddress}`
+          : `New bot deployed: ${botDeployment.botAddress}`;
 
       alert(`Strategy deployed successfully!\n${botMessage}\nOrders: ${orderPlacement.orderCount} placed`);
       
@@ -268,6 +276,8 @@ export default function Home() {
         errorMessage = 'Strategy exceeds budget limits. Please reduce order size or number of orders.';
       } else if (error.message.includes('0x56a02da8')) {
         errorMessage = 'Contract error. Please try again or contact support.';
+      } else if (error.message.includes('Factory ownership issue detected')) {
+        errorMessage = 'Factory ownership issue detected. The Factory contract has an unexpected ownership restriction that prevents bot deployment. Please contact support or wait for a contract redeployment.';
       }
       
       alert('Error deploying strategy: ' + errorMessage);

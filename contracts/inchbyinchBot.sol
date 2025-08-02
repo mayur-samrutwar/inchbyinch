@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -16,7 +15,7 @@ import "./LOPAdapter.sol";
  * @notice Core trading bot for inchbyinch ladder strategies
  * @dev Handles ladder order placement, reposting, and strategy execution
  */
-contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
+contract inchbyinchBot is ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
     
     // Strategy types
@@ -106,6 +105,8 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
         uint256 strategyType
     );
     
+    event ETHWithdrawn(address indexed recipient, uint256 amount);
+    
     event OrderPlaced(
         bytes32 indexed orderHash,
         uint256 indexed orderIndex,
@@ -161,10 +162,11 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
     error UnauthorizedCaller();
     error ZeroAddress();
     error ZeroAmount();
+    error TransferFailed();
     
     // Modifiers
     modifier onlyAuthorized() {
-        if (msg.sender != owner() && !orderManager.isBotAuthorized(address(this))) revert UnauthorizedCaller();
+        // Allow anyone to call - simplified
         _;
     }
     
@@ -174,7 +176,12 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
     }
     
     modifier validAddress(address addr) {
-        if (addr == address(0)) revert ZeroAddress();
+        // Allow zero address for native ETH
+        if (addr == address(0)) {
+            // Special case for native ETH - don't revert
+            _;
+            return;
+        }
         _;
     }
     
@@ -198,7 +205,7 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
         _;
     }
     
-    constructor() Ownable(msg.sender) {
+    constructor() {
         // Implementation contract - will be initialized via proxy
     }
     
@@ -213,15 +220,13 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
         address _lop,
         address _lopAdapter,
         address _orderManager,
-        address _oracleAdapter,
-        address owner_
-    ) external validAddress(_lop) validAddress(_lopAdapter) validAddress(_orderManager) validAddress(_oracleAdapter) validAddress(owner_) {
+        address _oracleAdapter
+    ) external validAddress(_lop) validAddress(_lopAdapter) validAddress(_orderManager) validAddress(_oracleAdapter) {
         require(address(lop) == address(0), "Already initialized");
         lop = I1inchLOP(_lop);
         lopAdapter = LOPAdapter(payable(_lopAdapter));
         orderManager = IOrderManager(_orderManager);
         oracleAdapter = IOracleAdapter(_oracleAdapter);
-        _transferOwnership(owner_);
     }
     
     /**
@@ -256,7 +261,7 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
         uint256 expiryTime,
         bool flipToSell_,
         uint256 flipPercentage_
-    ) external onlyOwner validAddress(makerAsset) validAddress(takerAsset) validPrice(startPrice) validSpacing(spacing) validOrderSize(orderSize) {
+    ) external validAddress(makerAsset) validAddress(takerAsset) validPrice(startPrice) validSpacing(spacing) validOrderSize(orderSize) {
         // Validate strategy parameters
         if (strategy.isActive) revert StrategyAlreadyActive();
         if (numOrders == 0 || numOrders > MAX_ORDERS) revert InvalidStrategy();
@@ -269,9 +274,23 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
         if (stopLoss > 0 && stopLoss >= startPrice) revert InvalidStopLoss();
         if (takeProfit > 0 && takeProfit <= startPrice) revert InvalidTakeProfit();
         
-        // Check token balances
-        uint256 makerBalance = IERC20(makerAsset).balanceOf(address(this));
-        uint256 takerBalance = IERC20(takerAsset).balanceOf(address(this));
+        // Check token balances (handle native ETH)
+        uint256 makerBalance;
+        uint256 takerBalance;
+        
+        if (makerAsset == address(0)) {
+            // Native ETH
+            makerBalance = address(this).balance;
+        } else {
+            makerBalance = IERC20(makerAsset).balanceOf(address(this));
+        }
+        
+        if (takerAsset == address(0)) {
+            // Native ETH
+            takerBalance = address(this).balance;
+        } else {
+            takerBalance = IERC20(takerAsset).balanceOf(address(this));
+        }
         
         if (strategyType == STRATEGY_BUY_LADDER) {
             if (takerBalance < budget) revert InsufficientBalance();
@@ -305,7 +324,7 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
         });
         
         // Register strategy with order manager
-        orderManager.createStrategy(address(this), owner(), strategyType);
+        orderManager.createStrategy(address(this), msg.sender, strategyType);
         
         emit StrategyCreated(
             makerAsset,
@@ -323,7 +342,7 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Places ladder orders
      */
-    function placeLadderOrders() external onlyOwner strategyActive {
+    function placeLadderOrders() external strategyActive {
         uint256 currentPrice = _getCurrentPrice();
         
         // Check stop conditions
@@ -392,7 +411,7 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Cancels all active orders
      */
-    function cancelAllOrders() external onlyOwner strategyActive {
+    function cancelAllOrders() external strategyActive {
         _cancelAllOrdersInternal();
     }
 
@@ -415,7 +434,7 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
      * @notice Cancels a specific order
      * @param orderIndex The order index
      */
-    function cancelOrder(uint256 orderIndex) external onlyOwner strategyActive {
+    function cancelOrder(uint256 orderIndex) external strategyActive {
         if (orderIndex == 0 || orderIndex > strategy.currentOrderIndex) revert OrderNotFound();
         
         Order storage order = orders[orderIndex];
@@ -427,7 +446,7 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Checks for timeouts and cancels expired orders
      */
-    function checkTimeouts() external onlyOwner {
+    function checkTimeouts() external {
         if (!strategy.isActive) return;
         
         if (block.timestamp > strategy.expiryTime) {
@@ -438,7 +457,7 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Checks for stop loss conditions and cancels orders if triggered
      */
-    function checkStopLoss() external onlyOwner {
+    function checkStopLoss() external {
         if (!strategy.isActive) return;
         
         uint256 currentPrice = _getCurrentPrice();
@@ -457,8 +476,8 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
      * @param token The token address
      * @param amount The amount to withdraw
      */
-    function withdrawTokens(address token, uint256 amount) external onlyOwner {
-        IERC20(token).safeTransfer(owner(), amount);
+    function withdrawTokens(address token, uint256 amount) external {
+        IERC20(token).safeTransfer(msg.sender, amount);
     }
     
     /**
@@ -533,14 +552,14 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
     /**
      * @notice Pauses the bot
      */
-    function pause() external onlyOwner {
+    function pause() external {
         _pause();
     }
     
     /**
      * @notice Unpauses the bot
      */
-    function unpause() external onlyOwner {
+    function unpause() external {
         _unpause();
     }
     
@@ -693,11 +712,21 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
      * @return price The current price
      */
     function _getCurrentPrice() private view returns (uint256 price) {
-        try oracleAdapter.getLatestPrice(strategy.makerAsset) returns (IOracleAdapter.PriceData memory priceData) {
-            return priceData.price;
-        } catch {
-            // Fallback to strategy start price
-            return strategy.startPrice;
+        // Handle native ETH
+        if (strategy.makerAsset == address(0)) {
+            try oracleAdapter.getLatestPrice(address(0)) returns (IOracleAdapter.PriceData memory priceData) {
+                return priceData.price;
+            } catch {
+                // Fallback to strategy start price
+                return strategy.startPrice;
+            }
+        } else {
+            try oracleAdapter.getLatestPrice(strategy.makerAsset) returns (IOracleAdapter.PriceData memory priceData) {
+                return priceData.price;
+            } catch {
+                // Fallback to strategy start price
+                return strategy.startPrice;
+            }
         }
     }
     
@@ -706,11 +735,46 @@ contract inchbyinchBot is Ownable, ReentrancyGuard, Pausable {
      * @return spacing The dynamic spacing
      */
     function _getDynamicSpacing() private view returns (uint256 spacing) {
-        try oracleAdapter.calculateDynamicSpacing(strategy.makerAsset, strategy.spacing) returns (uint256 dynamicSpacing) {
+        // Handle native ETH
+        address asset = strategy.makerAsset == address(0) ? address(0) : strategy.makerAsset;
+        try oracleAdapter.calculateDynamicSpacing(asset, strategy.spacing) returns (uint256 dynamicSpacing) {
             return dynamicSpacing;
         } catch {
             // Fallback to static spacing
             return strategy.spacing;
         }
+    }
+    
+    /**
+     * @notice Allows the contract to receive ETH
+     */
+    receive() external payable {
+        // Accept ETH for gas fees
+    }
+    
+    /**
+     * @notice Allows anyone to withdraw ETH from the bot
+     * @param amount The amount to withdraw
+     */
+    function withdrawETH(uint256 amount) external {
+        if (amount > address(this).balance) revert InsufficientBalance();
+        
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        if (!success) revert TransferFailed();
+        
+        emit ETHWithdrawn(msg.sender, amount);
+    }
+    
+    /**
+     * @notice Emergency function to withdraw all ETH
+     */
+    function emergencyWithdrawETH() external {
+        uint256 balance = address(this).balance;
+        if (balance == 0) revert ZeroAmount();
+        
+        (bool success, ) = payable(msg.sender).call{value: balance}("");
+        if (!success) revert TransferFailed();
+        
+        emit ETHWithdrawn(msg.sender, balance);
     }
 } 

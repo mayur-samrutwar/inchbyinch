@@ -11,7 +11,8 @@
 !.yarn/versions
 
 # testing
-/coverage
+/scripts
+/utils/abis
 
 # next.js
 /.next/
@@ -66,3 +67,6 @@ gas-report.txt
 .env.development.local
 .env.test.local
 .env.production.local
+
+# test files
+/test
